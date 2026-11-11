@@ -43,6 +43,9 @@ body{background:var(--bg);color:var(--ink);font-family:'Roboto Mono',ui-monospac
 .mdel{position:absolute;top:.2rem;right:.2rem;background:none;border:0;color:inherit;padding:.1rem;cursor:pointer;line-height:0;opacity:.7}
 .mdel:hover{opacity:1}
 @media(hover:hover){.mdel{opacity:0}.meal:hover .mdel,.mdel:focus-visible{opacity:1}}
+.shop-btn{opacity:1}
+@media(hover:hover){.shop-btn{opacity:0;transition:opacity .15s}.c:hover .shop-btn,.shop-btn:focus-visible,.shop-btn[aria-pressed="true"]{opacity:1}}
+@media(hover:hover){.paste-btn{opacity:0;transition:opacity .15s}.c:hover .paste-btn,.paste-btn:focus-visible{opacity:1}}
 .tag{display:inline-flex;align-items:center;gap:.25rem;border:1px solid var(--line);border-radius:999px;padding:.05rem .55rem;font:inherit;font-size:.75rem;line-height:1.4;background:var(--card);color:inherit}
 .tag.on{background:var(--ink);color:var(--bg)}
 .meal.combo{border-left-width:4px}
@@ -109,21 +112,73 @@ function load(){
 }
 const dayLabel=(ws,i,wk)=>{const d=new Date(ws+'T00:00');d.setDate(d.getDate()+i+(wk==='nextWeek'?7:0));return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});};
 const Ic=({d,s=18,f})=><svg width={s} height={s} viewBox="0 0 24 24" fill={f?'currentColor':'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d}/></svg>;
-const P={plus:'M12 5v14M5 12h14',edit:'M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z',trash:'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6',cal:'M3 5h18v16H3zM3 10h18M8 3v4M16 3v4M12 13v5M9.5 15.5h5',x:'M6 6l12 12M18 6L6 18',cart:'M3 4h2l2.5 11h11L21 7H6M9 20h.01M17 20h.01',eye:'M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12zM12 9a3 3 0 100 6 3 3 0 000-6z',sun:'M12 8a4 4 0 100 8 4 4 0 000-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',moon:'M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z',star:'M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.9L12 17.8 5.8 21.1 7 14.2 2 9.3l6.9-1z',print:'M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z',filter:'M3 4h18l-7 9v6l-4 2v-8z',bookmark:'M6 3h12v18l-6-4-6 4z',copy:'M8 8h12v12H8zM4 16V4h12',paste:'M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2M9 2h6v4H9z'};
+const P={plus:'M12 5v14M5 12h14',chev:'M6 9l6 6 6-6',edit:'M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z',trash:'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6',cal:'M3 5h18v16H3zM3 10h18M8 3v4M16 3v4M12 13v5M9.5 15.5h5',x:'M6 6l12 12M18 6L6 18',cart:'M3 4h2l2.5 11h11L21 7H6M9 20h.01M17 20h.01',eye:'M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12zM12 9a3 3 0 100 6 3 3 0 000-6z',sun:'M12 8a4 4 0 100 8 4 4 0 000-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',moon:'M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z',star:'M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.9L12 17.8 5.8 21.1 7 14.2 2 9.3l6.9-1z',print:'M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z',filter:'M3 4h18l-7 9v6l-4 2v-8z',bookmark:'M6 3h12v18l-6-4-6 4z',copy:'M8 8h12v12H8zM4 16V4h12',paste:'M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2M9 2h6v4H9z'};
 
-function Modal({title,onClose,wide,children}){
+function Modal({title,onClose,wide,minH,children}){
   const ref=React.useRef(null);
   useEffect(()=>{const k=e=>{if(e.key!=='Escape')return;const all=document.querySelectorAll('.ov');if(all[all.length-1]===ref.current)onClose();};window.addEventListener('keydown',k);return()=>window.removeEventListener('keydown',k);},[]);
   return <div className="ov" ref={ref} onMouseDown={e=>e.target===e.currentTarget&&onClose()}>
-    <div className="mod" style={wide?{maxWidth:wide===true?'760px':wide}:null} role="dialog" aria-modal="true" aria-label={title}>
+    <div className="mod" style={{...(wide?{maxWidth:wide===true?'760px':wide}:null),...(minH?{minHeight:minH,display:'flex',flexDirection:'column'}:null)}} role="dialog" aria-modal="true" aria-label={title}>
       <div className="flex items-center justify-between mb-3"><h2 className="hd text-2xl">{title}</h2><button className="btn ic noprint" onClick={onClose} aria-label="Close"><Ic d={P.x}/></button></div>
       {children}
     </div></div>;
 }
 const Field=({label,children})=><label className="block mb-3"><span className="u text-xs block mb-1">{label}</span>{children}</label>;
+const LIST_CLS="box overflow-auto";
+function useDrop(open,wr){
+  const [st,setSt]=useState(null);
+  React.useLayoutEffect(()=>{
+    if(!open)return;
+    const upd=()=>{const el=wr.current;if(!el)return;const r=el.getBoundingClientRect();const below=window.innerHeight-r.bottom-8,above=r.top-8;const up=below<140&&above>below;
+      setSt({position:'fixed',left:r.left,width:r.width,maxHeight:Math.max(80,Math.min(176,up?above:below)),...(up?{bottom:window.innerHeight-r.top}:{top:r.bottom}),background:'var(--card)',zIndex:60});};
+    upd();window.addEventListener('resize',upd);window.addEventListener('scroll',upd,true);
+    return()=>{window.removeEventListener('resize',upd);window.removeEventListener('scroll',upd,true);};
+  },[open]);
+  return st;
+}
+const OPT_CLS="px-2 py-1 cursor-pointer hover:opacity-70 flex justify-between gap-2";
+function Select({value,onChange,options,label}){
+  const [open,setOpen]=useState(false);const [hi,setHi]=useState(0);const lr=React.useRef(null);const wr=React.useRef(null);const ls=useDrop(open,wr);
+  const idx=Math.max(0,options.findIndex(o=>o.value===value));const cur=options[idx];
+  useEffect(()=>{if(!open||!lr.current)return;const el=lr.current.children[hi];if(el)el.scrollIntoView({block:'nearest'});},[open,hi]);
+  const openIt=()=>{setHi(idx);setOpen(true);};
+  const pick=o=>{onChange(o.value);setOpen(false);};
+  const kd=e=>{
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();if(!open)openIt();else setHi(h=>Math.min(options.length-1,Math.max(0,h+(e.key==='ArrowDown'?1:-1))));}
+    else if(e.key==='Home'&&open){e.preventDefault();setHi(0);}
+    else if(e.key==='End'&&open){e.preventDefault();setHi(options.length-1);}
+    else if(e.key==='Enter'||e.key===' '){e.preventDefault();if(open)pick(options[hi]);else openIt();}
+    else if(e.key==='Escape'&&open){e.preventDefault();e.stopPropagation();setOpen(false);}
+  };
+  return <div className="relative" ref={wr}>
+    <button type="button" className="inp flex items-center justify-between gap-2 text-left cursor-pointer" role="combobox" aria-haspopup="listbox" aria-expanded={open} aria-label={label} onClick={()=>open?setOpen(false):openIt()} onBlur={()=>setOpen(false)} onKeyDown={kd}><span>{cur&&cur.label}</span><Ic d={P.chev} s={14}/></button>
+    {open&&ls&&<ul ref={lr} className={LIST_CLS} style={ls} role="listbox" onMouseDown={e=>e.preventDefault()} onClick={e=>e.preventDefault()}>
+      {options.map((o,j)=><li key={o.value} role="option" aria-selected={o.value===value} className={OPT_CLS} style={o.value===value?{background:'var(--hl)'}:j===hi?{outline:'1px solid var(--line)',outlineOffset:'-1px'}:null} onMouseEnter={()=>setHi(j)} onMouseDown={e=>{e.preventDefault();pick(o);}}><span>{o.label}</span></li>)}
+    </ul>}
+  </div>;
+}
+function Suggest({value,onChange,onSubmit,onPick,options,placeholder,label,autoFocus}){
+  const [open,setOpen]=useState(false);const [hi,setHi]=useState(-1);const lr=React.useRef(null);const wr=React.useRef(null);const ls=useDrop(open,wr);
+  const q=value.trim().toLowerCase();const matches=options.filter(o=>o.toLowerCase().includes(q));
+  useEffect(()=>{if(!open||!lr.current||hi<0)return;const el=lr.current.children[hi];if(el)el.scrollIntoView({block:'nearest'});},[open,hi]);
+  const pick=o=>{onPick(o);setOpen(false);setHi(-1);};
+  const kd=e=>{
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){if(!matches.length)return;e.preventDefault();if(!open){setOpen(true);setHi(e.key==='ArrowDown'?0:matches.length-1);}else setHi(h=>e.key==='ArrowDown'?Math.min(matches.length-1,h+1):Math.max(0,h-1));}
+    else if(e.key==='Enter'){e.preventDefault();if(open&&hi>=0&&matches[hi])pick(matches[hi]);else onSubmit();}
+    else if(e.key==='Escape'&&open){e.preventDefault();e.stopPropagation();setOpen(false);}
+  };
+  return <div className="relative flex-1" ref={wr}>
+    <input className="inp" autoFocus={autoFocus} role="combobox" aria-expanded={open&&matches.length>0} aria-label={label} placeholder={placeholder} value={value} onFocus={()=>setOpen(true)} onBlur={()=>setOpen(false)} onChange={e=>{onChange(e.target.value);setHi(-1);setOpen(true);}} onKeyDown={kd}/>
+    {open&&ls&&matches.length>0&&<ul ref={lr} className={LIST_CLS} style={ls} role="listbox" onMouseDown={e=>e.preventDefault()}>
+      {matches.map((o,j)=><li key={o} role="option" aria-selected={j===hi} className={OPT_CLS} style={j===hi?{background:'var(--hl)'}:null} onMouseEnter={()=>setHi(j)} onMouseDown={e=>{e.preventDefault();pick(o);}}><span>{o}</span></li>)}
+    </ul>}
+  </div>;
+}
+const DAY_OPTS=DAYS.map((d,i)=>({value:i,label:d}));
+const SLOT_OPTS=SLOTS.map(([k,n])=>({value:k,label:n}));
 const DaySlot=({day,slot,setDay,setSlot})=><div className="grid grid-cols-2 gap-2">
-  <Field label="Day"><select className="inp" value={day} onChange={e=>setDay(+e.target.value)}>{DAYS.map((d,i)=><option key={d} value={i}>{d}</option>)}</select></Field>
-  <Field label="Meal"><select className="inp" value={slot} onChange={e=>setSlot(e.target.value)}>{SLOTS.map(([k,n])=><option key={k} value={k}>{n}</option>)}</select></Field></div>;
+  <div className="mb-3"><span className="u text-xs block mb-1">Day</span><Select label="Day" value={day} onChange={setDay} options={DAY_OPTS}/></div>
+  <div className="mb-3"><span className="u text-xs block mb-1">Meal</span><Select label="Meal" value={slot} onChange={setSlot} options={SLOT_OPTS}/></div></div>;
 
 function RecipeView({r,onClose}){
   return <Modal title={r.name} wide onClose={onClose}>
@@ -132,24 +187,27 @@ function RecipeView({r,onClose}){
     {r.ings.length?<ul className="mb-3">{r.ings.map(i=><li key={i.id}>{i.qty} {i.name}</li>)}</ul>:<p className="mb-3 italic">No ingredients saved.</p>}
     <span className="u text-xs block mb-1">Prep notes</span>
     <p className="whitespace-pre-wrap">{r.notes||'No prep notes saved.'}</p>
-    <p className="text-xs mt-3 opacity-80">Cooked {(r.history||[]).length} time{(r.history||[]).length===1?'':'s'}</p>
+    <div className="mt-3"><span className="u text-xs block mb-1">Cooked history</span>
+      <p className="mb-2">Cooked {(r.history||[]).length} time{(r.history||[]).length===1?'':'s'}</p>
+      {(r.history||[]).length>0?<ul className="flex flex-wrap gap-1">{[...(r.history||[])].sort().reverse().map(d=><li key={d} className="tag">{fmtDate(d)}</li>)}</ul>:<p className="text-xs italic">No cooked dates yet. A meal is counted automatically once its day has passed.</p>}
+    </div>
   </Modal>;
 }
 function AddModal({init,recipes,combos=[],onAdd,onClose}){
   const opts=[...recipes.map(r=>({key:'r:'+r.id,kind:'r',id:r.id,name:r.name})),...combos.map(c=>({key:'c:'+c.id,kind:'c',id:c.id,name:c.name,items:c.items}))].sort((a,b)=>a.name.localeCompare(b.name,undefined,{sensitivity:'base'}));
   const k0=init.rid?'r:'+init.rid:init.cid?'c:'+init.cid:'';
-  const [rid,setRid]=useState(k0);const [name,setName]=useState((opts.find(o=>o.key===k0)||{name:''}).name);const [open,setOpen]=useState(false);
+  const [rid,setRid]=useState(k0);const [name,setName]=useState((opts.find(o=>o.key===k0)||{name:''}).name);const [open,setOpen]=useState(false);const skipOpen=React.useRef(!!k0);const wr=React.useRef(null);const ls=useDrop(open,wr);
   const q=name.trim().toLowerCase();const matches=rid?opts:opts.filter(o=>o.name.toLowerCase().includes(q));
   const pick=o=>{setRid(o.key);setName(o.name);setOpen(false);};
   const [day,setDay]=useState(init.day);const [slot,setSlot]=useState(init.slot);
   const go=()=>{const o=opts.find(x=>x.key===rid);let m;if(o&&o.kind==='r')m={name:o.name,rid:o.id,note:''};else if(o)m={name:o.name,cid:o.id,items:o.items,note:''};else{const n=name.trim();if(!n)return;m={name:n,rid:null,note:''};}onAdd(init.wk,day,slot,m);onClose();};
   return <Modal title="Add a meal" onClose={onClose}>
-    <Field label="Recipe or meal"><div className="relative">
+    <Field label="Recipe or meal"><div className="relative" ref={wr}>
       <input className="inp" autoFocus role="combobox" aria-expanded={open} placeholder="Search recipes or type a custom meal" value={name}
-        onFocus={()=>setOpen(true)} onBlur={()=>setOpen(false)}
+        onFocus={()=>{if(skipOpen.current){skipOpen.current=false;return;}setOpen(true);}} onClick={()=>setOpen(true)} onBlur={()=>setOpen(false)}
         onChange={e=>{setName(e.target.value);setRid('');setOpen(true);}}
         onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();if(open&&!rid&&matches.length&&name.trim())pick(matches[0]);else go();}}}/>
-      {open&&<ul className="absolute left-0 right-0 z-10 box overflow-auto" style={{background:'var(--card)',maxHeight:'11rem',top:'100%'}} role="listbox">
+      {open&&ls&&<ul className="box overflow-auto" style={ls} role="listbox" onMouseDown={e=>e.preventDefault()}>
         {matches.map(r=><li key={r.key} role="option" aria-selected={r.key===rid} className="px-2 py-1 cursor-pointer hover:opacity-70 flex justify-between gap-2" style={r.key===rid?{background:'var(--hl)'}:null} onMouseDown={e=>{e.preventDefault();pick(r);}}><span>{r.name}</span>{r.kind==='c'&&<span className="tag">Combo</span>}</li>)}
         {!matches.length&&<li className="px-2 py-1 italic">{name.trim()?'No recipe found. “'+name.trim()+'” will be added as a custom meal.':'No recipes yet. Type a custom meal.'}</li>}
       </ul>}
@@ -177,10 +235,9 @@ function TagInput({tags,onChange,all}){
   const add=raw=>{const t=raw.trim().replace(/\s+/g,' ');if(!t)return;if(!tags.some(x=>x.toLowerCase()===t.toLowerCase()))onChange([...tags,t]);setV('');};
   return <div>
     {tags.length>0&&<div className="flex flex-wrap gap-1 mb-2">{tags.map(t=><span key={t} className="tag">{t}<button type="button" aria-label={'Remove tag '+t} style={{background:'none',border:0,color:'inherit',cursor:'pointer',padding:0,lineHeight:0}} onClick={()=>onChange(tags.filter(x=>x!==t))}><Ic d={P.x} s={12}/></button></span>)}</div>}
-    <div className="flex gap-2"><input className="inp" list="tagopts" placeholder="Add a tag, e.g. Quick" aria-label="New tag" value={v}
-      onChange={e=>{const x=e.target.value;if(x.endsWith(','))add(x.slice(0,-1));else setV(x);}} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();add(v);}}}/>
+    <div className="flex gap-2"><Suggest label="New tag" placeholder="Add a tag, e.g. Quick" value={v} options={all.filter(t=>!tags.some(x=>x.toLowerCase()===t.toLowerCase()))}
+      onChange={x=>{if(x.endsWith(','))add(x.slice(0,-1));else setV(x);}} onPick={add} onSubmit={()=>add(v)}/>
       <button type="button" className="btn" onClick={()=>add(v)}><Ic d={P.plus} s={14}/>Add tag</button></div>
-    <datalist id="tagopts">{all.filter(t=>!tags.some(x=>x.toLowerCase()===t.toLowerCase())).map(t=><option key={t} value={t}/>)}</datalist>
   </div>;
 }
 const loadDraft=()=>{try{const d=JSON.parse(localStorage.getItem('menuPlanner.draft'));return d&&d.r&&Array.isArray(d.r.ings)?d:null;}catch(e){return null;}};
@@ -264,13 +321,12 @@ function WeekView({wk,s,today,onAdd,onEdit,onMove,onRemove,onList,shop=[],onShop
       {clip&&<span className="text-xs flex items-center gap-2">Copied: {clip.name}<button className="btn" style={{padding:'.1rem .5rem'}} onClick={onClear}>Clear</button></span>}
       {next&&<button className="btn" onClick={onList}><Ic d={P.cart}/>Shopping list</button>}
     </div>
-    {next&&<p className="mb-2 text-xs opacity-80">Drag meals between days and slots, or tap a meal to edit it. Whatever is here becomes this week’s menu on Monday.</p>}
     <div className="g flex-1">
     <div style={{display:'grid',gridTemplateColumns:'repeat(7,minmax(108px,1fr))',gridTemplateRows:'auto repeat(4,1fr)',flex:1,minWidth:'760px'}}>
-      {DAYS.map((dn,i)=>{const isT=!next&&i===today;return <div key={dn} className="c p-2 text-center relative" style={isT?{background:'var(--ink)',color:'var(--bg)'}:null} aria-current={isT?'date':undefined}><div className="hd text-base sm:text-lg leading-none">{dn}</div><div className="text-xs mt-1">{isT?'Today · ':''}{dayLabel(s.weekStart,i,wk)}</div>{!next&&<button style={{position:'absolute',top:'.3rem',right:'.3rem',background:'none',border:0,color:'inherit',cursor:'pointer',padding:0,lineHeight:0}} title={shop.includes(i)?'Remove grocery shopping marker':'Mark as grocery shopping day'} aria-label={shop.includes(i)?'Remove grocery shopping marker from '+dn:'Mark '+dn+' as grocery shopping day'} aria-pressed={shop.includes(i)} onClick={()=>onShop(i)}><Ic d={P.bookmark} s={16} f={shop.includes(i)}/></button>}</div>;})}
+      {DAYS.map((dn,i)=>{const isT=!next&&i===today;return <div key={dn} className="c p-2 text-center relative" style={isT?{background:'var(--ink)',color:'var(--bg)'}:null} aria-current={isT?'date':undefined}><div className="hd text-base sm:text-lg leading-none">{dn}</div><div className="text-xs mt-1">{isT?'Today · ':''}{dayLabel(s.weekStart,i,wk)}</div>{!next&&<button className="shop-btn" style={{position:'absolute',top:'.3rem',right:'.3rem',background:'none',border:0,color:'inherit',cursor:'pointer',padding:0,lineHeight:0}} title={shop.includes(i)?'Remove grocery shopping marker':'Mark as grocery shopping day'} aria-label={shop.includes(i)?'Remove grocery shopping marker from '+dn:'Mark '+dn+' as grocery shopping day'} aria-pressed={shop.includes(i)} onClick={()=>onShop(i)}><Ic d={P.bookmark} s={16} f={shop.includes(i)}/></button>}</div>;})}
       {SLOTS.map(([k,name])=><React.Fragment key={k}>
         {DAYS.map((dn,i)=><div key={dn} data-slot={i+':'+k} className={'c p-2 '+(over===i+':'+k?'over':'')} style={{minHeight:'5.5rem',...(!next&&i===today?{background:'var(--hl)'}:null)}}>
-          <div className="flex items-center justify-between mb-2"><span className="u text-xs">{name}</span><div className="flex gap-1">{clip&&<button className="btn ic" style={{padding:'.11rem'}} title="Paste meal here" aria-label={'Paste meal into '+name+' on '+dn} onClick={()=>onPaste(i,k)}><Ic d={P.paste} s={13}/></button>}<button className="btn ic" style={{padding:'.11rem'}} aria-label={'Add '+name+' on '+dn} onClick={()=>onAdd({wk,day:i,slot:k})}><Ic d={P.plus} s={13}/></button></div></div>
+          <div className="flex items-center justify-between mb-2"><span className="u text-xs">{name}</span><div className="flex gap-1">{clip&&<button className="btn ic paste-btn" style={{padding:'.11rem'}} title="Paste meal here" aria-label={'Paste meal into '+name+' on '+dn} onClick={()=>onPaste(i,k)}><Ic d={P.paste} s={13}/></button>}<button className="btn ic" style={{padding:'.11rem'}} aria-label={'Add '+name+' on '+dn} onClick={()=>onAdd({wk,day:i,slot:k})}><Ic d={P.plus} s={13}/></button></div></div>
           {week[i][k].map(m=><div key={m.id} className={'meal'+(m.items?' combo':'')} tabIndex="0" role="button" style={{opacity:ghost&&ghost.id===m.id?.35:1}}
             onPointerDown={e=>startDrag(e,i,k,m)} onKeyDown={e=>{if(e.key==='Enter')onEdit({wk,day:i,slot:k,meal:m});if(e.key==='Delete')onRemove(i,k,m);}}><span style={{paddingRight:'2.3rem',display:'block'}}>{m.name}</span>{m.note&&<small>{m.note}</small>}{m.items&&<small>{m.items.map(i=>i.name).join(' + ')}</small>}<button className="mcopy" aria-label={'Copy '+m.name} title="Copy meal" onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onCopy(m);}}><Ic d={P.copy} s={14}/></button><button className="mdel" aria-label={'Remove '+m.name} title="Remove meal" onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onRemove(i,k,m);}}><Ic d={P.trash} s={14}/></button></div>)}
         </div>)}
@@ -283,23 +339,21 @@ function ComboModal({init,recipes,onSave,onClose}){
   const [name,setName]=useState(init?init.name:'');const [items,setItems]=useState(init?init.items:[]);
   const [v,setV]=useState('');const [msg,setMsg]=useState('');
   const sorted=[...recipes].sort((a,b)=>a.name.localeCompare(b.name,undefined,{sensitivity:'base'}));
-  const add=()=>{const t=v.trim();if(!t)return;const r=recipes.find(x=>x.name.toLowerCase()===t.toLowerCase());setItems([...items,{id:uid(),name:r?r.name:t,rid:r?r.id:null}]);setV('');};
+  const add=raw=>{const t=(raw||'').trim();if(!t)return;const r=recipes.find(x=>x.name.toLowerCase()===t.toLowerCase());setItems([...items,{id:uid(),name:r?r.name:t,rid:r?r.id:null}]);setV('');};
   const save=()=>{if(!name.trim()){setMsg('Give the combo a name.');return;}if(!items.length){setMsg('Add at least one item.');return;}onSave({id:init?init.id:uid(),name:name.trim(),items});onClose();};
-  return <Modal title={init?'Edit combo':'New combo'} onClose={onClose}>
+  return <Modal title={init?'Edit combo':'New combo'} minH="min(26rem,85vh)" onClose={onClose}>
     <Field label="Combo name"><input className="inp" autoFocus value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Taco night"/></Field>
     <span className="u text-xs block mb-1">Items</span>
     {items.length>0&&<ul className="mb-2">{items.map(it=><li key={it.id} className="flex items-center justify-between gap-2 py-1"><span>{it.name}{!it.rid&&<span className="opacity-70 text-xs"> (custom)</span>}</span><button className="btn ic" aria-label={'Remove '+it.name} onClick={()=>setItems(items.filter(x=>x.id!==it.id))}><Ic d={P.x} s={14}/></button></li>)}</ul>}
-    <div className="flex gap-2 mb-3"><input className="inp" list="comboopts" placeholder="Search recipes or type a custom item" value={v} onChange={e=>setV(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();add();}}}/><button className="btn" onClick={add}><Ic d={P.plus} s={14}/>Add</button></div>
-    <datalist id="comboopts">{sorted.map(r=><option key={r.id} value={r.name}/>)}</datalist>
+    <div className="flex gap-2 mb-3"><Suggest label="Item" placeholder="Search recipes or type a custom item" value={v} options={sorted.map(r=>r.name)} onChange={setV} onPick={add} onSubmit={()=>add(v)}/><button className="btn" onClick={()=>add(v)}><Ic d={P.plus} s={14}/>Add</button></div>
     {msg&&<p className="mb-3 italic" role="status">{msg}</p>}
-    <div className="flex justify-end gap-2"><button className="btn" onClick={onClose}>Cancel</button><button className="btn pri" onClick={save}>Save combo</button></div>
+    <div className="flex justify-end gap-2 mt-auto pt-3"><button className="btn" onClick={onClose}>Cancel</button><button className="btn pri" onClick={save}>Save combo</button></div>
   </Modal>;
 }
 function Combos({combos,onNew,onEdit,onDel,onAdd}){
   const list=[...combos].sort((a,b)=>a.name.localeCompare(b.name,undefined,{sensitivity:'base'}));
   return <div className="p-4">
     <h2 className="hd text-3xl mb-1">Combos</h2>
-    <p className="text-xs mb-3 opacity-80">Group dishes into one block you can add to a menu in a single step.</p>
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2">
     {list.map(c=><article key={c.id} className="box p-2 flex flex-col aspect-square overflow-hidden" style={{background:'var(--card)'}}>
       <h3 className="hd text-lg leading-tight mb-1">{c.name}</h3>
@@ -394,6 +448,7 @@ function App(){
         <li>Plan ahead on <b>Next Week</b>: tap + on a slot to pick a recipe or type a custom meal, then drag meals between days and slots.</li>
         <li>On Monday, next week’s menu becomes <b>This Week</b>. Today is highlighted; tap any meal to edit, move or remove it.</li>
         <li>Save dishes in <b>Add Recipe</b>. In the <b>Recipe Book</b>, use the calendar icon to add one to next week.</li>
+        <li>Use <b>Combos</b> to group dishes into one block you can add to a menu in a single step.</li>
         <li>Tap <b>Shopping list</b> on Next Week to total the ingredients from your planned recipes.</li>
         <li>Everything saves automatically in this browser.</li>
       </ul>
