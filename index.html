@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Menu Planner + Recipe Book</title>
+<meta name="description" content="Plan weekly meals, save recipes and build shopping lists. A React prototype.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E%F0%9F%8D%BD%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Roboto+Mono:ital,wght@0,400;0,500;1,400&display=swap">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.26.0/babel.min.js"></script>
+<style>
+:root{--bg:#cad4ba;--tab:#b8c4a8;--ink:#3b453b;--line:#7f8475;--hl:#dfe8d2;--card:#d5dec9;color-scheme:light}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#222a23;--tab:#2b352c;--ink:#d2dcc7;--line:#7d8b7a;--hl:#35423a;--card:#2a332b;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#222a23;--tab:#2b352c;--ink:#d2dcc7;--line:#7d8b7a;--hl:#35423a;--card:#2a332b;color-scheme:dark}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{background:var(--bg);color:var(--ink);font-family:'Roboto Mono',ui-monospace,monospace;font-size:14px;margin:0}
+.hd{font-family:'Barlow Condensed','Arial Narrow',sans-serif;text-transform:uppercase;letter-spacing:.14em;font-weight:700}
+.u{text-decoration:underline;text-underline-offset:3px;text-transform:uppercase;letter-spacing:.06em}
+.box{border:1px solid var(--line)}
+.btn{border:1px solid var(--line);padding:.35rem .7rem;background:transparent;color:inherit;font:inherit;cursor:pointer;display:inline-flex;gap:.4rem;align-items:center}
+.btn:hover{background:var(--hl)}
+.btn.pri{background:var(--ink);color:var(--bg)}
+.ic{padding:.35rem}
+.inp{width:100%;background:var(--card);border:1px solid var(--line);padding:.4rem .5rem;color:inherit;font:inherit;border-radius:0}
+.tab{font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.12em;font-weight:700;font-size:1.05rem;border:1px solid var(--line);border-bottom:0;border-radius:10px 10px 0 0;padding:.45rem 1.1rem;background:var(--tab);color:inherit;cursor:pointer;position:relative;white-space:nowrap}
+.tab.on{background:var(--bg);margin-bottom:-1px;padding-bottom:calc(.45rem + 1px)}
+.panel{border:1px solid var(--line);background:var(--bg)}
+.meal{border:1px solid var(--line);background:var(--card);padding:.4rem .55rem;margin-bottom:.35rem;cursor:pointer}
+.meal small{display:block;opacity:.75;font-style:italic}
+.meal{user-select:none;-webkit-user-select:none;touch-action:none;cursor:grab}
+.g{border-top:1px solid var(--line);border-left:1px solid var(--line);overflow-x:auto;display:flex}
+.c{border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+@media(max-width:480px){.tab{padding:.4rem .6rem;font-size:.95rem}}
+.today{background:var(--hl);outline:2px solid var(--ink);outline-offset:-2px}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:1rem;z-index:50}
+.mod{background:var(--bg);border:1px solid var(--line);max-width:520px;width:100%;max-height:90vh;overflow:auto;padding:1.25rem}
+.over{outline:2px dashed var(--ink);outline-offset:-4px}
+.nm{background:transparent;border:0;border-bottom:1px dashed transparent;color:inherit;font:inherit;font-size:.8rem;letter-spacing:.1em;text-align:center;width:100%;max-width:20rem;padding:0}
+.nm:hover,.nm:focus{border-bottom-color:var(--line)}
+.meal{position:relative}
+.mdel{position:absolute;top:.2rem;right:.2rem;background:none;border:0;color:inherit;padding:.1rem;cursor:pointer;line-height:0;opacity:.7}
+.mdel:hover{opacity:1}
+@media(hover:hover){.mdel{opacity:0}.meal:hover .mdel,.mdel:focus-visible{opacity:1}}
+.tag{display:inline-flex;align-items:center;gap:.25rem;border:1px solid var(--line);border-radius:999px;padding:.05rem .55rem;font:inherit;font-size:.75rem;line-height:1.4;background:var(--card);color:inherit}
+.tag.on{background:var(--ink);color:var(--bg)}
+.ptable{border-collapse:collapse;width:100%}
+.ptable th,.ptable td{border:1px solid var(--line);padding:.4rem .5rem;vertical-align:top;text-align:left}
+.ptable td{height:3.2rem;min-width:110px}
+@media print{
+:root,:root[data-theme="dark"],:root:not([data-theme="light"]){--bg:#fff;--ink:#000;--line:#555;--card:#fff;--hl:#eee;padding:0}
+body{background:#fff}
+#root>div>*:not(.ov){display:none!important}
+.ov{position:static;display:block;background:none;padding:0}
+.mod{border:0;max-width:none;max-height:none;overflow:visible;padding:0;background:#fff}
+.noprint{display:none!important}
+}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect}=React;
+const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+const SLOTS=[['b','Breakfast'],['l','Lunch'],['d','Dinner'],['s','Snacks']];
+const KEY='menuPlanner.v1';
+const uid=()=>Math.random().toString(36).slice(2,9);
+const emptyWeek=()=>{const w={};DAYS.forEach((_,i)=>{w[i]={b:[],l:[],d:[],s:[]}});return w;};
+const monday=d=>{const x=new Date(d);x.setHours(0,0,0,0);x.setDate(x.getDate()-((x.getDay()+6)%7));return x;};
+const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const SAMPLES=[
+ {id:'r1',name:'Macaroni and cheese',ings:[{id:'a1',name:'Elbow macaroni',qty:'1 lb'},{id:'a2',name:'Cheddar',qty:'2 cups'},{id:'a3',name:'Milk',qty:'2 cups'}],notes:'Bake 20 minutes for a crispy top.'},
+ {id:'r2',name:'Chicken tacos',ings:[{id:'b1',name:'Chicken breast',qty:'1 lb'},{id:'b2',name:'Tortillas',qty:'8'},{id:'b3',name:'Salsa',qty:'1 cup'}],notes:'Season chicken with cumin and chili powder.'},
+ {id:'r3',name:'Omelette',ings:[{id:'c1',name:'Eggs',qty:'3'},{id:'c2',name:'Cheddar',qty:'0.5 cups'}],notes:'Optional add-ins: peppers, ham, spinach.'}
+];
+function load(){
+  const cur=monday(new Date());let st=null;
+  try{st=JSON.parse(localStorage.getItem(KEY));}catch(e){}
+  if(!st||!st.recipes)return{recipes:SAMPLES,thisWeek:emptyWeek(),nextWeek:emptyWeek(),weekStart:iso(cur)};
+  const diff=Math.round((cur-new Date(st.weekStart+'T00:00'))/(7*864e5));
+  if(diff>=1){st.thisWeek=diff===1?st.nextWeek:emptyWeek();st.nextWeek=emptyWeek();st.weekStart=iso(cur);}
+  return st;
+}
+const dayLabel=(ws,i,wk)=>{const d=new Date(ws+'T00:00');d.setDate(d.getDate()+i+(wk==='nextWeek'?7:0));return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});};
+const Ic=({d,s=18,f})=><svg width={s} height={s} viewBox="0 0 24 24" fill={f?'currentColor':'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d}/></svg>;
+const P={plus:'M12 5v14M5 12h14',edit:'M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z',trash:'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6',cal:'M3 5h18v16H3zM3 10h18M8 3v4M16 3v4M12 13v5M9.5 15.5h5',x:'M6 6l12 12M18 6L6 18',cart:'M3 4h2l2.5 11h11L21 7H6M9 20h.01M17 20h.01',eye:'M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12zM12 9a3 3 0 100 6 3 3 0 000-6z',sun:'M12 8a4 4 0 100 8 4 4 0 000-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',moon:'M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z',star:'M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.9L12 17.8 5.8 21.1 7 14.2 2 9.3l6.9-1z',print:'M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z',filter:'M3 4h18l-7 9v6l-4 2v-8z'};
+
+function Modal({title,onClose,wide,children}){
+  const ref=React.useRef(null);
+  useEffect(()=>{const k=e=>{if(e.key!=='Escape')return;const all=document.querySelectorAll('.ov');if(all[all.length-1]===ref.current)onClose();};window.addEventListener('keydown',k);return()=>window.removeEventListener('keydown',k);},[]);
+  return <div className="ov" ref={ref} onMouseDown={e=>e.target===e.currentTarget&&onClose()}>
+    <div className="mod" style={wide?{maxWidth:wide===true?'760px':wide}:null} role="dialog" aria-modal="true" aria-label={title}>
+      <div className="flex items-center justify-between mb-3"><h2 className="hd text-2xl">{title}</h2><button className="btn ic noprint" onClick={onClose} aria-label="Close"><Ic d={P.x}/></button></div>
+      {children}
+    </div></div>;
+}
+const Field=({label,children})=><label className="block mb-3"><span className="u text-xs block mb-1">{label}</span>{children}</label>;
+const DaySlot=({day,slot,setDay,setSlot})=><div className="grid grid-cols-2 gap-2">
+  <Field label="Day"><select className="inp" value={day} onChange={e=>setDay(+e.target.value)}>{DAYS.map((d,i)=><option key={d} value={i}>{d}</option>)}</select></Field>
+  <Field label="Meal"><select className="inp" value={slot} onChange={e=>setSlot(e.target.value)}>{SLOTS.map(([k,n])=><option key={k} value={k}>{n}</option>)}</select></Field></div>;
+
+function RecipeView({r,onClose}){
+  return <Modal title={r.name} wide onClose={onClose}>
+    {(r.tags||[]).length>0&&<div className="flex flex-wrap gap-1 mb-3">{r.tags.map(t=><span key={t} className="tag">{t}</span>)}</div>}
+    <span className="u text-xs block mb-1">Ingredients</span>
+    {r.ings.length?<ul className="mb-3">{r.ings.map(i=><li key={i.id}>{i.qty} {i.name}</li>)}</ul>:<p className="mb-3 italic">No ingredients saved.</p>}
+    <span className="u text-xs block mb-1">Prep notes</span>
+    <p className="whitespace-pre-wrap">{r.notes||'No prep notes saved.'}</p>
+  </Modal>;
+}
+function AddModal({init,recipes,onAdd,onClose}){
+  const [rid,setRid]=useState(init.rid||'');const [name,setName]=useState(init.rid?(recipes.find(x=>x.id===init.rid)||{name:''}).name:'');const [open,setOpen]=useState(false);
+  const q=name.trim().toLowerCase();const matches=rid?recipes:recipes.filter(r=>r.name.toLowerCase().includes(q));
+  const pick=r=>{setRid(r.id);setName(r.name);setOpen(false);};
+  const [day,setDay]=useState(init.day);const [slot,setSlot]=useState(init.slot);
+  const go=()=>{const r=recipes.find(x=>x.id===rid);const n=r?r.name:name.trim();if(!n)return;onAdd(init.wk,day,slot,{name:n,rid:r?r.id:null,note:''});onClose();};
+  return <Modal title="Add a meal" onClose={onClose}>
+    <Field label="Recipe or meal"><div className="relative">
+      <input className="inp" autoFocus role="combobox" aria-expanded={open} placeholder="Search recipes or type a custom meal" value={name}
+        onFocus={()=>setOpen(true)} onBlur={()=>setOpen(false)}
+        onChange={e=>{setName(e.target.value);setRid('');setOpen(true);}}
+        onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();if(open&&!rid&&matches.length&&name.trim())pick(matches[0]);else go();}}}/>
+      {open&&<ul className="absolute left-0 right-0 z-10 box overflow-auto" style={{background:'var(--card)',maxHeight:'11rem',top:'100%'}} role="listbox">
+        {matches.map(r=><li key={r.id} role="option" aria-selected={r.id===rid} className="px-2 py-1 cursor-pointer hover:opacity-70" style={r.id===rid?{background:'var(--hl)'}:null} onMouseDown={e=>{e.preventDefault();pick(r);}}>{r.name}</li>)}
+        {!matches.length&&<li className="px-2 py-1 italic">{name.trim()?'No recipe found. “'+name.trim()+'” will be added as a custom meal.':'No recipes yet. Type a custom meal.'}</li>}
+      </ul>}
+    </div></Field>
+    <DaySlot day={day} slot={slot} setDay={setDay} setSlot={setSlot}/>
+    <div className="flex justify-end gap-2"><button className="btn" onClick={onClose}>Cancel</button><button className="btn pri" onClick={go}>Add meal</button></div>
+  </Modal>;
+}
+function EditModal({init,recipes,onView,onSave,onDelete,onClose}){
+  const rec=init.meal.rid?recipes.find(r=>r.id===init.meal.rid):null;
+  const [name,setName]=useState(init.meal.name);const [note,setNote]=useState(init.meal.note||'');
+  const [day,setDay]=useState(init.day);const [slot,setSlot]=useState(init.slot);
+  return <Modal title="Edit meal" onClose={onClose}>
+    <Field label="Meal name"><input className="inp" value={name} onChange={e=>setName(e.target.value)}/></Field>
+    {init.meal.rid&&<div className="mb-3"><span className="u text-xs block mb-1">Recipe</span>{rec?<button className="btn" onClick={()=>onView(rec)}>{rec.name}</button>:<p className="italic">This recipe is no longer in your Recipe Book.</p>}</div>}
+    <Field label="Notes"><textarea className="inp" rows="3" value={note} onChange={e=>setNote(e.target.value)}/></Field>
+    <DaySlot day={day} slot={slot} setDay={setDay} setSlot={setSlot}/>
+    <div className="flex justify-between gap-2"><button className="btn" onClick={()=>{onDelete();onClose();}}><Ic d={P.trash}/>Remove</button>
+      <button className="btn pri" onClick={()=>{if(!name.trim())return;onSave(day,slot,{name:name.trim(),note});onClose();}}>Save</button></div>
+  </Modal>;
+}
+function TagInput({tags,onChange,all}){
+  const [v,setV]=useState('');
+  const add=raw=>{const t=raw.trim().replace(/\s+/g,' ');if(!t)return;if(!tags.some(x=>x.toLowerCase()===t.toLowerCase()))onChange([...tags,t]);setV('');};
+  return <div>
+    {tags.length>0&&<div className="flex flex-wrap gap-1 mb-2">{tags.map(t=><span key={t} className="tag">{t}<button type="button" aria-label={'Remove tag '+t} style={{background:'none',border:0,color:'inherit',cursor:'pointer',padding:0,lineHeight:0}} onClick={()=>onChange(tags.filter(x=>x!==t))}><Ic d={P.x} s={12}/></button></span>)}</div>}
+    <div className="flex gap-2"><input className="inp" list="tagopts" placeholder="Add a tag, e.g. Quick" aria-label="New tag" value={v}
+      onChange={e=>{const x=e.target.value;if(x.endsWith(','))add(x.slice(0,-1));else setV(x);}} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();add(v);}}}/>
+      <button type="button" className="btn" onClick={()=>add(v)}><Ic d={P.plus} s={14}/>Add tag</button></div>
+    <datalist id="tagopts">{all.filter(t=>!tags.some(x=>x.toLowerCase()===t.toLowerCase())).map(t=><option key={t} value={t}/>)}</datalist>
+  </div>;
+}
+const loadDraft=()=>{try{const d=JSON.parse(localStorage.getItem('menuPlanner.draft'));return d&&d.r&&Array.isArray(d.r.ings)?d:null;}catch(e){return null;}};
+function RecipeForm({initial,submitLabel,onSave,onCancel,allTags=[]}){
+  const blank={name:'',ings:[{id:uid(),name:'',qty:''}],notes:''};
+  const [d]=useState(()=>initial?null:loadDraft());
+  const [r,setR]=useState(initial||(d&&d.r)||blank);const [url,setUrl]=useState(d?d.url||'':'');
+  useEffect(()=>{if(initial)return;try{localStorage.setItem('menuPlanner.draft',JSON.stringify({r,url}));}catch(e){}},[r,url]);
+  const [msg,setMsg]=useState('');const [scanMsg,setScanMsg]=useState('');
+  const setIng=(id,k,v)=>setR({...r,ings:r.ings.map(i=>i.id===id?{...i,[k]:v}:i)});
+  const save=()=>{if(!r.name.trim()){setMsg('Add a recipe name first.');return;}
+    onSave({...r,id:r.id||uid(),name:r.name.trim(),tags:r.tags||[],ings:r.ings.filter(i=>i.name.trim())});if(!initial){setR(blank);setUrl('');setScanMsg('');setMsg('Saved to your Recipe Book.');}};
+  return <div>
+    {!initial&&<div className="box p-3 mb-4"><span className="u text-xs block mb-1">Recipe scanner</span>
+      <div className="flex gap-2"><input className="inp" type="url" placeholder="https://example.com/recipe" value={url} onChange={e=>setUrl(e.target.value)}/>
+      <button className="btn" onClick={()=>setScanMsg('Scanning websites isn’t available yet. Enter the recipe by hand for now.')}>Scan</button></div>
+      {scanMsg&&<p className="mt-2 italic" role="status">{scanMsg}</p>}</div>}
+    <div className={initial?'':'box p-3'}>
+    <Field label="Recipe name"><input className="inp" value={r.name} onChange={e=>setR({...r,name:e.target.value})}/></Field>
+    <div className="mb-3"><span className="u text-xs block mb-1">Tags</span><TagInput tags={r.tags||[]} all={allTags} onChange={tags=>setR({...r,tags})}/></div>
+    <span className="u text-xs block mb-1">Ingredients</span>
+    {r.ings.map(i=><div key={i.id} className="flex gap-2 mb-2">
+      <input className="inp" placeholder="Ingredient" aria-label="Ingredient name" value={i.name} onChange={e=>setIng(i.id,'name',e.target.value)}/>
+      <input className="inp" style={{maxWidth:'8rem'}} placeholder="Qty (2 cups)" aria-label="Quantity" value={i.qty} onChange={e=>setIng(i.id,'qty',e.target.value)}/>
+      <button className="btn ic" aria-label="Remove ingredient" onClick={()=>setR({...r,ings:r.ings.filter(x=>x.id!==i.id)})}><Ic d={P.x}/></button></div>)}
+    <button className="btn mb-4" onClick={()=>setR({...r,ings:[...r.ings,{id:uid(),name:'',qty:''}]})}><Ic d={P.plus}/>Add ingredient</button>
+    <Field label="Prep notes"><textarea className="inp" rows="4" value={r.notes} onChange={e=>setR({...r,notes:e.target.value})}/></Field>
+    {msg&&<p className="mb-3 italic" role="status">{msg}</p>}
+    <div className="flex flex-wrap items-center justify-between gap-2">{!initial?<p className="text-xs italic">Drafts save automatically as you type, so you can finish later.</p>:<span/>}<div className="flex gap-2">{onCancel&&<button className="btn" onClick={onCancel}>Cancel</button>}<button className="btn pri" onClick={save}>{submitLabel}</button></div></div>
+    </div>
+  </div>;
+}
+function PrintView({week,ws,onClose}){
+  const print=()=>{try{window.print();}catch(e){}};
+  return <Modal title="This week’s menu" wide="860px" onClose={onClose}>
+    <p className="noprint text-xs mb-3 opacity-80">Preview of the printed page. If the Print button does nothing, use your browser’s print command (Ctrl+P or Cmd+P) while this preview is open.</p>
+    <div className="overflow-x-auto"><table className="ptable">
+      <thead><tr><th></th>{SLOTS.map(([k,n])=><th key={k} className="u text-xs">{n}</th>)}</tr></thead>
+      <tbody>{DAYS.map((dn,i)=><tr key={dn}><th scope="row"><span className="hd text-lg">{dn}</span><div className="text-xs font-normal">{dayLabel(ws,i,'thisWeek')}</div></th>{SLOTS.map(([k])=><td key={k}>{week[i][k].map(m=><div key={m.id}>{m.name}</div>)}</td>)}</tr>)}</tbody>
+    </table></div>
+    <div className="noprint flex justify-end mt-4"><button className="btn pri" onClick={print}><Ic d={P.print} s={16}/>Print</button></div>
+  </Modal>;
+}
+function ListModal({week,recipes,onClose}){
+  const map={};
+  DAYS.forEach((_,d)=>SLOTS.forEach(([s])=>week[d][s].forEach(m=>{const r=recipes.find(x=>x.id===m.rid);if(!r)return;
+    r.ings.forEach(i=>{const q=(i.qty||'').trim();const p=q.match(/^(\d+(?:\.\d+)?)\s*(.*)$/);const unit=p?p[2]:q;const key=i.name.trim().toLowerCase()+'|'+unit.toLowerCase();
+      const e=map[key]||(map[key]={name:i.name.trim(),unit,n:p?0:null,txt:[]});
+      if(p&&e.n!==null)e.n+=parseFloat(p[1]);else if(q)e.txt.push(q);});})));
+  const items=Object.values(map).map(e=>(e.n?(Math.round(e.n*100)/100)+' '+e.unit:e.txt.join(', ')).trim()+' '+e.name).map(t=>t.trim()).sort();
+  const [done,setDone]=useState({});const [copied,setCopied]=useState(false);
+  const copy=()=>{try{navigator.clipboard.writeText(items.join('\n')).then(()=>setCopied(true));}catch(e){}};
+  return <Modal title="Shopping list" onClose={onClose}>
+    {items.length===0?<p>No recipe ingredients on next week’s menu yet. Add meals from your Recipe Book to build a list.</p>:
+    <ul className="mb-4">{items.map(t=><li key={t} className="py-1 border-b" style={{borderColor:'var(--line)'}}><label className="flex gap-2 cursor-pointer"><input type="checkbox" checked={!!done[t]} onChange={()=>setDone({...done,[t]:!done[t]})}/><span style={{textDecoration:done[t]?'line-through':'none',opacity:done[t]?.55:1}}>{t}</span></label></li>)}</ul>}
+    {items.length>0&&<div className="noprint flex gap-2"><button className="btn" onClick={()=>{try{window.print();}catch(e){}}}><Ic d={P.print} s={16}/>Print list</button><button className="btn" onClick={copy}>{copied?'Copied':'Copy list'}</button></div>}
+  </Modal>;
+}
+function WeekView({wk,s,today,onAdd,onEdit,onMove,onRemove,onList}){
+  const week=s[wk];const [over,setOver]=useState('');const [ghost,setGhost]=useState(null);const next=wk==='nextWeek';
+  const startDrag=(e,i,k,m)=>{
+    if(e.button!==undefined&&e.button!==0)return;
+    const sx=e.clientX,sy=e.clientY;let moved=false,target=null;
+    const find=(x,y)=>{const el=document.elementFromPoint(x,y);const c=el&&el.closest('[data-slot]');return c?c.dataset.slot:null;};
+    const mv=ev=>{if(!moved&&Math.hypot(ev.clientX-sx,ev.clientY-sy)<6)return;moved=true;target=find(ev.clientX,ev.clientY);setOver(target||'');setGhost({x:ev.clientX,y:ev.clientY,name:m.name,id:m.id});};
+    const up=()=>{
+      window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);window.removeEventListener('pointercancel',up);
+      setGhost(null);setOver('');
+      if(!moved)onEdit({wk,day:i,slot:k,meal:m});
+      else if(target){const [d,sl]=target.split(':');if(+d!==i||sl!==k)onMove(i,k,m.id,+d,sl,{});}
+    };
+    window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up);window.addEventListener('pointercancel',up);
+  };
+  return <div className="p-3 sm:p-4 flex flex-col flex-1 relative">
+    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+      <h2 className="hd text-2xl">{next?'Next week’s menu':'This week’s menu'}</h2>
+      {next&&<button className="btn" onClick={onList}><Ic d={P.cart}/>Shopping list</button>}
+    </div>
+    {next&&<p className="mb-2 text-xs opacity-80">Drag meals between days and slots, or tap a meal to edit it. Whatever is here becomes this week’s menu on Monday.</p>}
+    <div className="g flex-1">
+    <div style={{display:'grid',gridTemplateColumns:'repeat(7,minmax(108px,1fr))',gridTemplateRows:'auto repeat(4,1fr)',flex:1,minWidth:'760px'}}>
+      {DAYS.map((dn,i)=>{const isT=!next&&i===today;return <div key={dn} className="c p-2 text-center" style={isT?{background:'var(--ink)',color:'var(--bg)'}:null} aria-current={isT?'date':undefined}><div className="hd text-base sm:text-lg leading-none">{dn}</div><div className="text-xs mt-1">{isT?'Today · ':''}{dayLabel(s.weekStart,i,wk)}</div></div>;})}
+      {SLOTS.map(([k,name])=><React.Fragment key={k}>
+        {DAYS.map((dn,i)=><div key={dn} data-slot={i+':'+k} className={'c p-2 '+(over===i+':'+k?'over':'')} style={{minHeight:'5.5rem',...(!next&&i===today?{background:'var(--hl)'}:null)}}>
+          <div className="flex items-center justify-between mb-2"><span className="u text-xs">{name}</span><button className="btn ic" style={{padding:'.11rem'}} aria-label={'Add '+name+' on '+dn} onClick={()=>onAdd({wk,day:i,slot:k})}><Ic d={P.plus} s={13}/></button></div>
+          {week[i][k].map(m=><div key={m.id} className="meal" tabIndex="0" role="button" style={{opacity:ghost&&ghost.id===m.id?.35:1}}
+            onPointerDown={e=>startDrag(e,i,k,m)} onKeyDown={e=>{if(e.key==='Enter')onEdit({wk,day:i,slot:k,meal:m});if(e.key==='Delete')onRemove(i,k,m);}}><span style={{paddingRight:'1.1rem',display:'block'}}>{m.name}</span>{m.note&&<small>{m.note}</small>}<button className="mdel" aria-label={'Remove '+m.name} title="Remove meal" onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onRemove(i,k,m);}}><Ic d={P.trash} s={14}/></button></div>)}
+        </div>)}
+      </React.Fragment>)}
+    </div></div>
+    {ghost&&<div className="meal" style={{position:'fixed',left:ghost.x+10,top:ghost.y+10,pointerEvents:'none',zIndex:60,boxShadow:'0 4px 12px rgba(0,0,0,.3)'}}>{ghost.name}</div>}
+  </div>;
+}
+function Book({recipes:all,onAdd,onEdit,onDel,onView,onFav,onNew}){
+  const [q,setQ]=useState('');const [ft,setFt]=useState([]);const [fo,setFo]=useState(false);const t=q.trim().toLowerCase();
+  const tagsAll=[...new Map(all.flatMap(r=>r.tags||[]).map(x=>[x.toLowerCase(),x])).values()].sort((a,b)=>a.localeCompare(b));
+  const sel=ft.filter(k=>tagsAll.some(x=>x.toLowerCase()===k));
+  const byTag=sel.length?all.filter(r=>(r.tags||[]).some(x=>sel.includes(x.toLowerCase()))):all;
+  const found=t?byTag.filter(r=>r.name.toLowerCase().includes(t)||r.ings.some(i=>i.name.toLowerCase().includes(t))||(r.tags||[]).some(x=>x.toLowerCase().includes(t))):byTag;
+  const recipes=[...found.filter(r=>r.fav),...found.filter(r=>!r.fav)];
+  return <div className="p-4">
+    <div className="flex flex-wrap items-center justify-between gap-2 mb-3"><h2 className="hd text-3xl">Recipe book</h2>
+    <div className="flex gap-2 items-center" style={{flex:'1 1 14rem',maxWidth:'22rem'}}><input className="inp" type="search" placeholder="Search name, ingredient or tag" aria-label="Search recipes" value={q} onChange={e=>setQ(e.target.value)}/>
+    <button className={'btn ic '+(sel.length?'pri':'')} title="Filter by tag" aria-label="Filter by tag" onClick={()=>setFo(true)}><Ic d={P.filter} s={18}/>{sel.length>0&&<span className="text-xs">{sel.length}</span>}</button></div></div>
+    {all.length===0&&<p>No recipes yet. Use the Add Recipe tab to save your first one.</p>}
+    {all.length>0&&recipes.length===0&&<p>No recipes match your search or filters.</p>}
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2">
+    {recipes.map(r=><article key={r.id} className="box p-2 flex flex-col aspect-square overflow-hidden" style={{background:'var(--card)'}}>
+      <div className="flex items-start justify-between gap-1 mb-1"><h3 className="hd text-lg leading-tight">{r.name}</h3><button className="shrink-0" style={{background:'none',border:0,color:'inherit',cursor:'pointer',padding:0}} title={r.fav?'Remove from favorites':'Add to favorites'} aria-label={r.fav?'Remove from favorites':'Add to favorites'} aria-pressed={!!r.fav} onClick={()=>onFav(r.id)}><Ic d={P.star} s={16} f={r.fav}/></button></div>
+      <ul className="text-xs flex-1 overflow-hidden opacity-80">{r.ings.slice(0,3).map(i=><li key={i.id} className="truncate">{i.qty} {i.name}</li>)}{r.ings.length>3&&<li>+{r.ings.length-3} more</li>}</ul>
+      {(r.tags||[]).length>0&&<div className="flex flex-wrap gap-1 mt-1">{r.tags.slice(0,2).map(x=><span key={x} className="tag" style={{fontSize:'.65rem',padding:'0 .4rem',maxWidth:'100%',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',display:'inline-block'}}>{x}</span>)}{r.tags.length>2&&<span className="tag" style={{fontSize:'.65rem',padding:'0 .4rem'}}>+{r.tags.length-2}</span>}</div>}
+      <div className="flex gap-1 mt-auto pt-1">
+        <button className="btn ic" title="View recipe" aria-label="View recipe" onClick={()=>onView(r)}><Ic d={P.eye}/></button>
+        <button className="btn ic" title="Add to next week’s menu" aria-label="Add to next week’s menu" onClick={()=>onAdd(r)}><Ic d={P.cal}/></button>
+        <button className="btn ic" title="Edit recipe" aria-label="Edit recipe" onClick={()=>onEdit(r)}><Ic d={P.edit}/></button>
+        <button className="btn ic" title="Delete recipe" aria-label="Delete recipe" onClick={()=>onDel(r)}><Ic d={P.trash}/></button>
+      </div></article>)}
+    <button className="btn aspect-square justify-center" style={{borderStyle:'dashed',padding:0}} title="Add a new recipe" aria-label="Add a new recipe" onClick={onNew}><Ic d={P.plus} s={32}/></button>
+    </div>
+    {fo&&<Modal title="Filter by tag" onClose={()=>setFo(false)}>
+      {tagsAll.length===0?<p className="mb-4">No tags yet. Add tags when you create or edit a recipe, then filter by them here.</p>:<>
+        <p className="text-xs mb-3 opacity-80">Show recipes that have any of the selected tags.</p>
+        <div className="flex flex-wrap gap-2 mb-4">{tagsAll.map(x=>{const k=x.toLowerCase();const on=sel.includes(k);return <button key={x} className={'tag '+(on?'on':'')} style={{cursor:'pointer',fontSize:'.85rem',padding:'.2rem .75rem'}} aria-pressed={on} onClick={()=>setFt(on?sel.filter(y=>y!==k):[...sel,k])}>{x}</button>;})}</div></>}
+      <div className="flex justify-between gap-2"><button className="btn" onClick={()=>setFt([])}>Clear filters</button><button className="btn pri" onClick={()=>setFo(false)}>Done</button></div>
+    </Modal>}
+  </div>;
+}
+function App(){
+  const [s,setS]=useState(load);const [tab,setTab]=useState('this');const [modal,setModal]=useState(null);const [view,setView]=useState(null);const [toast,setToast]=useState(null);
+  useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(null),6000);return()=>clearTimeout(t);},[toast]);
+  const [theme,setTheme]=useState(()=>{try{const t=localStorage.getItem('menuPlanner.theme');if(t)return t;}catch(e){}return window.matchMedia&&matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';});
+  useEffect(()=>{document.documentElement.dataset.theme=theme;try{localStorage.setItem('menuPlanner.theme',theme);}catch(e){}},[theme]);
+  useEffect(()=>{try{localStorage.setItem(KEY,JSON.stringify(s));}catch(e){}},[s]);
+  const today=(new Date().getDay()+6)%7;
+  const edit=(wk,fn)=>setS(p=>{const w=JSON.parse(JSON.stringify(p[wk]));fn(w);return{...p,[wk]:w};});
+  const addMeal=(wk,d,sl,m)=>edit(wk,w=>{w[d][sl].push({id:uid(),...m});});
+  const moveMeal=wk=>(fd,fs,id,td,ts,patch)=>edit(wk,w=>{const m=w[fd][fs].find(x=>x.id===id);if(!m)return;w[fd][fs]=w[fd][fs].filter(x=>x.id!==id);w[td][ts].push({...m,...patch});});
+  const rm=(wk,d,sl,id)=>edit(wk,w=>{w[d][sl]=w[d][sl].filter(x=>x.id!==id);});
+  const removeMeal=(wk,d,sl,meal)=>{rm(wk,d,sl,meal.id);setToast({wk,d,sl,meal,k:uid()});};
+  const undo=()=>{if(!toast)return;edit(toast.wk,w=>{w[toast.d][toast.sl].push(toast.meal);});setToast(null);};
+  const saveRecipe=r=>setS(p=>({...p,recipes:p.recipes.some(x=>x.id===r.id)?p.recipes.map(x=>x.id===r.id?r:x):[...p.recipes,r]}));
+  const toggleFav=id=>setS(p=>({...p,recipes:p.recipes.map(r=>r.id===id?{...r,fav:!r.fav}:r)}));
+  const delRecipe=id=>setS(p=>({...p,recipes:p.recipes.filter(r=>r.id!==id)}));
+  const close=()=>setModal(null);
+  const allTags=[...new Map(s.recipes.flatMap(r=>r.tags||[]).map(x=>[x.toLowerCase(),x])).values()].sort((a,b)=>a.localeCompare(b));
+  const TABS=[['this','This Week'],['next','Next Week'],['add','Add Recipe'],['book','Recipe Book']];
+  const wkOf=m=>m.wk;
+  return <div className="max-w-7xl mx-auto p-3 sm:px-6 sm:py-4 flex flex-col" style={{minHeight:'calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))'}}>
+    <header className="box text-center py-1.5 mb-3">
+      <input className="nm" aria-label="Names of the people using this planner" title="Click to edit your names" value={s.names??'Add your names'} onFocus={e=>e.target.select()} onChange={e=>setS(p=>({...p,names:e.target.value}))} onBlur={e=>{if(!e.target.value.trim())setS(p=>({...p,names:'Add your names'}));}}/>
+      <h1 className="hd text-2xl sm:text-3xl leading-none mt-0.5">Menu Planner + Recipe Book</h1>
+    </header>
+    <nav className="flex flex-wrap gap-1 px-2" role="tablist">
+      {TABS.map(([k,n])=><button key={k} role="tab" aria-selected={tab===k} className={'tab '+(tab===k?'on':'')} onClick={()=>setTab(k)}>{n}</button>)}
+      <div className="ml-auto self-center flex gap-1"><button className="btn ic" style={{padding:'.2rem'}} title="Print this week’s menu" aria-label="Print this week’s menu" onClick={()=>setModal({t:'print'})}><Ic d={P.print} s={15}/></button><button className="btn ic" style={{padding:'.2rem'}} title={theme==='dark'?'Switch to light mode':'Switch to dark mode'} aria-label={theme==='dark'?'Switch to light mode':'Switch to dark mode'} onClick={()=>setTheme(theme==='dark'?'light':'dark')}><Ic d={theme==='dark'?P.sun:P.moon} s={15}/></button></div>
+    </nav>
+    <main className="panel flex flex-col flex-1">
+      {tab==='this'&&<WeekView wk="thisWeek" s={s} today={today} onMove={moveMeal('thisWeek')} onRemove={(d,sl,m)=>removeMeal('thisWeek',d,sl,m)} onAdd={i=>setModal({t:'add',...i})} onEdit={i=>setModal({t:'edit',...i})}/>}
+      {tab==='next'&&<WeekView wk="nextWeek" s={s} onMove={moveMeal('nextWeek')} onRemove={(d,sl,m)=>removeMeal('nextWeek',d,sl,m)} onAdd={i=>setModal({t:'add',...i})} onEdit={i=>setModal({t:'edit',...i})} onList={()=>setModal({t:'list'})}/>}
+      {tab==='add'&&<div className="p-4 max-w-2xl"><h2 className="hd text-3xl mb-4">Add recipe</h2><RecipeForm submitLabel="Save recipe" allTags={allTags} onSave={saveRecipe}/></div>}
+      {tab==='book'&&<Book recipes={s.recipes} onNew={()=>setTab('add')} onFav={toggleFav} onView={setView} onAdd={r=>setModal({t:'add',wk:'nextWeek',day:0,slot:'d',rid:r.id})} onEdit={r=>setModal({t:'recipe',r})} onDel={r=>setModal({t:'del',r})}/>}
+    </main>
+    <details className="box mt-3 px-3 py-2 text-xs">
+      <summary className="u cursor-pointer">How to use</summary>
+      <ul className="list-disc pl-5 space-y-1 mt-2">
+        <li>Plan ahead on <b>Next Week</b>: tap + on a slot to pick a recipe or type a custom meal, then drag meals between days and slots.</li>
+        <li>On Monday, next week’s menu becomes <b>This Week</b>. Today is highlighted; tap any meal to edit, move or remove it.</li>
+        <li>Save dishes in <b>Add Recipe</b>. In the <b>Recipe Book</b>, use the calendar icon to add one to next week.</li>
+        <li>Tap <b>Shopping list</b> on Next Week to total the ingredients from your planned recipes.</li>
+        <li>Everything saves automatically in this browser.</li>
+      </ul>
+    </details>
+    {modal&&modal.t==='add'&&<AddModal init={modal} recipes={s.recipes} onAdd={addMeal} onClose={close}/>}
+    {modal&&modal.t==='edit'&&<EditModal init={modal} recipes={s.recipes} onView={setView} onClose={close} onDelete={()=>removeMeal(modal.wk,modal.day,modal.slot,modal.meal)} onSave={(d,sl,patch)=>moveMeal(modal.wk)(modal.day,modal.slot,modal.meal.id,d,sl,patch)}/>}
+    {modal&&modal.t==='recipe'&&<Modal title="Edit recipe" onClose={close}><RecipeForm initial={modal.r} allTags={allTags} submitLabel="Save changes" onSave={r=>{saveRecipe(r);close();}} onCancel={close}/></Modal>}
+    {modal&&modal.t==='del'&&<Modal title="Are you sure?" onClose={close}><p className="mb-4">Delete “{modal.r.name}” from your Recipe Book? Meals already on your menus will stay.</p><div className="flex justify-end gap-2"><button className="btn" onClick={close}>Cancel</button><button className="btn pri" onClick={()=>{delRecipe(modal.r.id);close();}}>Delete recipe</button></div></Modal>}
+    {modal&&modal.t==='list'&&<ListModal week={s.nextWeek} recipes={s.recipes} onClose={close}/>}
+    {modal&&modal.t==='print'&&<PrintView week={s.thisWeek} ws={s.weekStart} onClose={close}/>}
+    {view&&<RecipeView r={view} onClose={()=>setView(null)}/>}
+    {toast&&<div role="status" className="box flex items-center gap-3 px-3 py-2" style={{position:'fixed',left:'50%',transform:'translateX(-50%)',bottom:'calc(1rem + env(safe-area-inset-bottom,0px))',background:'var(--bg)',zIndex:80,boxShadow:'0 4px 12px rgba(0,0,0,.3)'}}>Meal removed.<button className="btn" onClick={undo}>Undo</button></div>}
+  </div>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
