@@ -73,7 +73,10 @@ const {useState,useEffect}=React;
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const SLOTS=[['b','Breakfast'],['l','Lunch'],['d','Dinner'],['s','Snacks']];
 const KEY='menuPlanner.v1';
-const WORKER_URL='https://menu-planner-api.minap1.workers.dev';
+// Display-only: decimals in a quantity show as fractions (0.33 -> 1/3, 2.5 -> 2 1/2). Stored values stay decimal.
+const FR=[[1,8],[1,6],[1,4],[1,3],[3,8],[1,2],[5,8],[2,3],[3,4,],[5,6],[7,8]];
+const fmtQty=q=>String(q==null?'':q).replace(/\d+\.\d+/g,t=>{const v=parseFloat(t),w=Math.floor(v),f=v-w;const m=FR.find(([a,b])=>Math.abs(f-a/b)<0.006);return m?(w?w+' ':'')+m[0]+'/'+m[1]:t;});
+const WORKER_URL=''; // e.g. 'https://menu-planner-api.YOURNAME.workers.dev' (no trailing slash)
 const uid=()=>Math.random().toString(36).slice(2,9);
 const emptyWeek=()=>{const w={};DAYS.forEach((_,i)=>{w[i]={b:[],l:[],d:[],s:[]}});return w;};
 const monday=d=>{const x=new Date(d);x.setHours(0,0,0,0);x.setDate(x.getDate()-((x.getDay()+6)%7));return x;};
@@ -185,7 +188,7 @@ function RecipeView({r,onClose}){
   return <Modal title={r.name} wide onClose={onClose}>
     {(r.tags||[]).length>0&&<div className="flex flex-wrap gap-1 mb-3">{r.tags.map(t=><span key={t} className="tag">{t}</span>)}</div>}
     <span className="u text-xs block mb-1">Ingredients</span>
-    {r.ings.length?<ul className="mb-3">{r.ings.map(i=><li key={i.id}>{i.qty} {i.name}</li>)}</ul>:<p className="mb-3 italic">No ingredients saved.</p>}
+    {r.ings.length?<ul className="mb-3">{r.ings.map(i=><li key={i.id}>{fmtQty(i.qty)} {i.name}</li>)}</ul>:<p className="mb-3 italic">No ingredients saved.</p>}
     <span className="u text-xs block mb-1">Prep notes</span>
     <p className="whitespace-pre-wrap">{r.notes||'No prep notes saved.'}</p>
     <div className="mt-3"><span className="u text-xs block mb-1">Cooked history</span>
@@ -298,7 +301,7 @@ function ListModal({week,recipes,onClose}){
     r.ings.forEach(i=>{const q=(i.qty||'').trim();const p=q.match(/^(\d+(?:\.\d+)?)\s*(.*)$/);const unit=p?p[2]:q;const key=i.name.trim().toLowerCase()+'|'+unit.toLowerCase();
       const e=map[key]||(map[key]={name:i.name.trim(),unit,n:p?0:null,txt:[]});
       if(p&&e.n!==null)e.n+=parseFloat(p[1]);else if(q)e.txt.push(q);});}))));
-  const items=Object.values(map).map(e=>(e.n?(Math.round(e.n*100)/100)+' '+e.unit:e.txt.join(', ')).trim()+' '+e.name).map(t=>t.trim()).sort();
+  const items=Object.values(map).map(e=>fmtQty(e.n?(Math.round(e.n*100)/100)+' '+e.unit:e.txt.join(', ')).trim()+' '+e.name).map(t=>t.trim()).sort();
   const [done,setDone]=useState({});const [copied,setCopied]=useState(false);
   const copy=()=>{try{navigator.clipboard.writeText(items.join('\n')).then(()=>setCopied(true));}catch(e){}};
   return <Modal title="Shopping list" onClose={onClose}>
@@ -389,7 +392,7 @@ function Book({recipes:all,onAdd,onEdit,onDel,onView,onFav,onNew}){
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2">
     {recipes.map(r=><article key={r.id} className="box p-2 flex flex-col aspect-square overflow-hidden" style={{background:'var(--card)'}}>
       <div className="flex items-start justify-between gap-1 mb-1"><h3 className="hd text-lg leading-tight">{r.name}</h3><button className="shrink-0" style={{background:'none',border:0,color:'inherit',cursor:'pointer',padding:0}} title={r.fav?'Remove from favorites':'Add to favorites'} aria-label={r.fav?'Remove from favorites':'Add to favorites'} aria-pressed={!!r.fav} onClick={()=>onFav(r.id)}><Ic d={P.star} s={16} f={r.fav}/></button></div>
-      <ul className="text-xs flex-1 overflow-hidden opacity-80">{r.ings.slice(0,3).map(i=><li key={i.id} className="truncate">{i.qty} {i.name}</li>)}{r.ings.length>3&&<li>+{r.ings.length-3} more</li>}</ul>
+      <ul className="text-xs flex-1 overflow-hidden opacity-80">{r.ings.slice(0,3).map(i=><li key={i.id} className="truncate">{fmtQty(i.qty)} {i.name}</li>)}{r.ings.length>3&&<li>+{r.ings.length-3} more</li>}</ul>
       {(r.tags||[]).length>0&&<div className="flex flex-wrap gap-1 mt-1">{r.tags.slice(0,2).map(x=><span key={x} className="tag" style={{fontSize:'.65rem',padding:'0 .4rem',maxWidth:'100%',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',display:'inline-block'}}>{x}</span>)}{r.tags.length>2&&<span className="tag" style={{fontSize:'.65rem',padding:'0 .4rem'}}>+{r.tags.length-2}</span>}</div>}
       <div className="flex gap-1 mt-auto pt-1">
         <button className="btn ic" title="View recipe" aria-label="View recipe" onClick={()=>onView(r)}><Ic d={P.eye}/></button>
