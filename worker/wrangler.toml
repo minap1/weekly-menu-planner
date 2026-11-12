@@ -1,0 +1,8 @@
+name = "menu-planner-api"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+workers_dev = true
+preview_urls = false
+
+[vars]
+ALLOWED_ORIGINS = "https://minap1.github.io,http://localhost:8000"

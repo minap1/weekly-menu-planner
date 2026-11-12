@@ -73,6 +73,7 @@ const {useState,useEffect}=React;
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const SLOTS=[['b','Breakfast'],['l','Lunch'],['d','Dinner'],['s','Snacks']];
 const KEY='menuPlanner.v1';
+const WORKER_URL='https://menu-planner-api.minap1.workers.dev';
 const uid=()=>Math.random().toString(36).slice(2,9);
 const emptyWeek=()=>{const w={};DAYS.forEach((_,i)=>{w[i]={b:[],l:[],d:[],s:[]}});return w;};
 const monday=d=>{const x=new Date(d);x.setHours(0,0,0,0);x.setDate(x.getDate()-((x.getDay()+6)%7));return x;};
@@ -246,14 +247,20 @@ function RecipeForm({initial,submitLabel,onSave,onCancel,onHistory,allTags=[]}){
   const [d]=useState(()=>initial?null:loadDraft());
   const [r,setR]=useState(initial||(d&&d.r)||blank);const [url,setUrl]=useState(d?d.url||'':'');
   useEffect(()=>{if(initial)return;try{localStorage.setItem('menuPlanner.draft',JSON.stringify({r,url}));}catch(e){}},[r,url]);
-  const [msg,setMsg]=useState('');const [scanMsg,setScanMsg]=useState('');
+  const [msg,setMsg]=useState('');const [scanMsg,setScanMsg]=useState('');const [scanning,setScanning]=useState(false);
+  const scan=async()=>{if(!WORKER_URL){setScanMsg('Scanner isn’t set up yet. Add your Worker URL.');return;}if(!url.trim()){setScanMsg('Paste a recipe link first.');return;}
+    setScanning(true);setScanMsg('');
+    try{const res=await fetch(WORKER_URL+'/scan?url='+encodeURIComponent(url.trim()));const d=await res.json();if(!res.ok)throw new Error(d.error||'Scan failed.');
+      setR(p=>({...p,name:d.name||p.name,notes:d.notes||p.notes,ings:d.ings&&d.ings.length?d.ings.map(i=>({id:uid(),name:i.name,qty:i.qty})):p.ings}));setScanMsg('Scanned. Review the ingredients, then save.');}
+    catch(e){setScanMsg(e.message==='Failed to fetch'?'Couldn’t reach the scanner. Enter the recipe by hand.':e.message);}
+    setScanning(false);};
   const setIng=(id,k,v)=>setR({...r,ings:r.ings.map(i=>i.id===id?{...i,[k]:v}:i)});
   const save=()=>{if(!r.name.trim()){setMsg('Add a recipe name first.');return;}
     onSave({...r,id:r.id||uid(),name:r.name.trim(),tags:r.tags||[],ings:r.ings.filter(i=>i.name.trim())});if(!initial){setR(blank);setUrl('');setScanMsg('');setMsg('Saved to your Recipe Book.');}};
   return <div>
     {!initial&&<div className="box p-3 mb-4"><span className="u text-xs block mb-1">Recipe scanner</span>
       <div className="flex gap-2"><input className="inp" type="url" placeholder="https://example.com/recipe" value={url} onChange={e=>setUrl(e.target.value)}/>
-      <button className="btn" onClick={()=>setScanMsg('Scanning websites isn’t available yet. Enter the recipe by hand for now.')}>Scan</button></div>
+      <button className="btn" disabled={scanning} onClick={scan}>{scanning?'Scanning…':'Scan'}</button></div>
       {scanMsg&&<p className="mt-2 italic" role="status">{scanMsg}</p>}</div>}
     <div className={initial?'':'box p-3'}>
     <Field label="Recipe name"><input className="inp" value={r.name} onChange={e=>setR({...r,name:e.target.value})}/></Field>
@@ -264,7 +271,7 @@ function RecipeForm({initial,submitLabel,onSave,onCancel,onHistory,allTags=[]}){
       <input className="inp" style={{maxWidth:'8rem'}} placeholder="Qty (2 cups)" aria-label="Quantity" value={i.qty} onChange={e=>setIng(i.id,'qty',e.target.value)}/>
       <button className="btn ic" aria-label="Remove ingredient" onClick={()=>setR({...r,ings:r.ings.filter(x=>x.id!==i.id)})}><Ic d={P.x}/></button></div>)}
     <button className="btn mb-4" onClick={()=>setR({...r,ings:[...r.ings,{id:uid(),name:'',qty:''}]})}><Ic d={P.plus}/>Add ingredient</button>
-    <Field label="Prep notes"><textarea className="inp" rows="4" value={r.notes} onChange={e=>setR({...r,notes:e.target.value})}/></Field>
+    <Field label="Prep notes"><textarea className="inp" rows="8" value={r.notes} onChange={e=>setR({...r,notes:e.target.value})}/></Field>
     {initial&&<div className="mb-3"><span className="u text-xs block mb-1">Cooked history</span>
       <p className="mb-2">Cooked {(r.history||[]).length} time{(r.history||[]).length===1?'':'s'}</p>
       {(r.history||[]).length>0?<ul className="flex flex-wrap gap-1">{[...(r.history||[])].sort().reverse().map(d=><li key={d} className="tag">{fmtDate(d)}<button type="button" aria-label={'Remove '+fmtDate(d)+' from history'} title="Remove this entry" style={{background:'none',border:0,color:'inherit',cursor:'pointer',padding:0,lineHeight:0}} onClick={()=>{const h=(r.history||[]).filter(x=>x!==d);setR({...r,history:h});if(onHistory)onHistory(r.id,h);}}><Ic d={P.x} s={12}/></button></li>)}</ul>:<p className="text-xs italic">No cooked dates yet. A meal is counted automatically once its day has passed.</p>}
