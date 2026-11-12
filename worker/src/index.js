@@ -73,6 +73,55 @@ function parseIngredient(line) {
   return { qty: (tidyQty(q[1]) + (q[2] ? ' ' + q[2] : '')).trim(), name: q[3].trim() };
 }
 
+
+// ---- Kroger (Fred Meyer) prices ----
+const KROGER = 'https://api.kroger.com/v1';
+const DAY = 86400;
+
+async function krogerToken(env) {
+  const cached = await env.CACHE.get('token');
+  if (cached) return cached;
+  const res = await fetch(KROGER + '/connect/oauth2/token', {
+    method: 'POST',
+    headers: { Authorization: 'Basic ' + btoa(env.KROGER_ID + ':' + env.KROGER_SECRET), 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'grant_type=client_credentials&scope=product.compact',
+  });
+  if (!res.ok) throw new Error('Kroger auth failed');
+  const d = await res.json();
+  await env.CACHE.put('token', d.access_token, { expirationTtl: Math.max(60, (d.expires_in || 1800) - 120) });
+  return d.access_token;
+}
+
+async function krogerGet(env, path) {
+  const res = await fetch(KROGER + path, { headers: { Authorization: 'Bearer ' + (await krogerToken(env)), Accept: 'application/json' } });
+  if (!res.ok) throw new Error('Kroger ' + res.status);
+  return res.json();
+}
+
+async function findStores(env, zip) {
+  // No chain filter (its exact value is unreliable); keep Fred Meyer stores by chain/name instead.
+  const d = await krogerGet(env, '/locations?filter.zipCode.near=' + zip + '&filter.radiusInMiles=25&filter.limit=50');
+  return (d.data || [])
+    .filter(l => /fred/i.test((l.chain || '') + ' ' + (l.name || '')))
+    .slice(0, 5)
+    .map(l => ({ id: l.locationId, name: l.name, address: [l.address && l.address.addressLine1, l.address && l.address.city].filter(Boolean).join(', ') }));
+}
+
+// Prices are cached per store and ingredient for 24 hours, so they refresh daily.
+async function findPrice(env, store, q) {
+  const key = 'p:' + store + ':' + q.toLowerCase();
+  const hit = await env.CACHE.get(key, 'json');
+  if (hit) return hit;
+  const d = await krogerGet(env, '/products?filter.term=' + encodeURIComponent(q) + '&filter.locationId=' + store + '&filter.limit=5');
+  let out = { price: null };
+  for (const p of d.data || []) {
+    const it = (p.items || []).find(i => i.price && i.price.regular > 0);
+    if (it) { out = { price: { regular: it.price.regular, promo: it.price.promo > 0 ? it.price.promo : null }, desc: p.description, brand: p.brand || '', size: it.size || '' }; break; }
+  }
+  await env.CACHE.put(key, JSON.stringify(out), { expirationTtl: DAY });
+  return out;
+}
+
 export default {
   async fetch(req, env) {
     const h = cors(req, env);
@@ -88,6 +137,19 @@ export default {
         const ings = (Array.isArray(r.recipeIngredient) ? r.recipeIngredient : []).map(parseIngredient).filter(i => i.name);
         return json({ name: decode(r.name), ings, notes: steps(r.recipeInstructions).map((t, i) => (i + 1) + '. ' + t).join('\n'), source: target.href }, 200, h);
       } catch (e) { return json({ error: 'Could not read that page.' }, 502, h); }
+    }
+    if ((url.pathname === '/stores' || url.pathname === '/price') && req.method === 'GET') {
+      if (h['Access-Control-Allow-Origin'] === 'null') return json({ error: 'Origin not allowed' }, 403, h);
+      try {
+        if (url.pathname === '/stores') {
+          const zip = url.searchParams.get('zip') || '';
+          if (!/^\d{5}$/.test(zip)) return json({ error: 'Enter a 5-digit ZIP.' }, 400, h);
+          return json({ stores: await findStores(env, zip) }, 200, h);
+        }
+        const store = url.searchParams.get('store') || '', q = (url.searchParams.get('q') || '').trim();
+        if (!/^\w{8}$/.test(store) || !q || q.length > 60) return json({ error: 'Bad request.' }, 400, h);
+        return json(await findPrice(env, store, q), 200, h);
+      } catch (e) { return json({ error: 'Price lookup unavailable.' }, 502, h); }
     }
     return json({ error: 'Not found' }, 404, h);
   },

@@ -6,3 +6,7 @@ preview_urls = false
 
 [vars]
 ALLOWED_ORIGINS = "https://minap1.github.io,http://localhost:8000"
+
+[[kv_namespaces]]
+binding = "CACHE"
+id = "dfd4c8185283426aad29b0f419335a10"

@@ -184,11 +184,48 @@ const DaySlot=({day,slot,setDay,setSlot})=><div className="grid grid-cols-2 gap-
   <div className="mb-3"><span className="u text-xs block mb-1">Day</span><Select label="Day" value={day} onChange={setDay} options={DAY_OPTS}/></div>
   <div className="mb-3"><span className="u text-xs block mb-1">Meal</span><Select label="Meal" value={slot} onChange={setSlot} options={SLOT_OPTS}/></div></div>;
 
+// ---- Fred Meyer price estimate (needs WORKER_URL) ----
+const STORE_KEY='menuPlanner.store';
+const W_OZ={lb:16,lbs:16,pound:16,pounds:16,oz:1,ounce:1,ounces:1,g:.03527,gram:.03527,grams:.03527,kg:35.274};
+const V_FL={cup:8,cups:8,tbsp:.5,tbs:.5,tablespoon:.5,tablespoons:.5,tsp:1/6,teaspoon:1/6,teaspoons:1/6,'fl oz':1,ml:.03381,l:33.814,liter:33.814,liters:33.814,gal:128,gallon:128,qt:32,quart:32,pt:16,pint:16};
+const parseAmt=t=>{const m=String(t||'').trim().toLowerCase().match(/^(\d+(?:\.\d+)?)\s*(fl oz|[a-z]+)?/);if(!m)return null;const n=parseFloat(m[1]),u=m[2]||'';
+  if(W_OZ[u]!==undefined)return{d:'w',v:n*W_OZ[u]};if(V_FL[u]!==undefined)return{d:'v',v:n*V_FL[u]};if(!u||u==='ct'||u==='each')return{d:'c',v:n};return null;};
+// Prorates by amount used when units match; otherwise counts one whole package.
+const lineCost=(ing,p)=>{const price=p.price.promo||p.price.regular,rq=parseAmt(ing.qty),pq=parseAmt(p.size);
+  return rq&&pq&&rq.d===pq.d&&pq.v>0?{c:price*rq.v/pq.v,k:'est'}:{c:price,k:'pkg'};};
+const money=n=>'$'+n.toFixed(2);
+function PriceBox({ings}){
+  const [store,setStore]=useState(()=>{try{return JSON.parse(localStorage.getItem(STORE_KEY));}catch(e){return null;}});
+  const [zip,setZip]=useState('');const [stores,setStores]=useState(null);const [rows,setRows]=useState(null);const [err,setErr]=useState('');
+  const sig=ings.map(i=>i.name+'|'+i.qty).join(';');
+  useEffect(()=>{if(!WORKER_URL||!store||!ings.length)return;let dead=false;setRows(null);
+    Promise.all(ings.map(i=>fetch(WORKER_URL+'/price?store='+store.id+'&q='+encodeURIComponent(i.name)).then(r=>r.ok?r.json():null).catch(()=>null)))
+      .then(ps=>{if(!dead)setRows(ings.map((i,n)=>({i,p:ps[n]&&ps[n].price?ps[n]:null})));});
+    return()=>{dead=true;};},[store&&store.id,sig]);
+  const find=async()=>{setErr('');setStores(null);
+    try{const r=await fetch(WORKER_URL+'/stores?zip='+encodeURIComponent(zip.trim()));const d=await r.json();if(!r.ok)throw new Error(d.error);if(!d.stores.length)throw new Error('No Fred Meyer stores found near that ZIP.');setStores(d.stores);}
+    catch(e){setErr(e.message==='Failed to fetch'?'Couldn’t reach the price service.':e.message);}};
+  const pick=st=>{try{localStorage.setItem(STORE_KEY,JSON.stringify(st));}catch(e){}setStore(st);setStores(null);};
+  if(!WORKER_URL||!ings.length)return null;
+  const got=(rows||[]).filter(x=>x.p).map(x=>({...x,...lineCost(x.i,x.p)}));const total=got.reduce((a,x)=>a+x.c,0);const miss=(rows||[]).length-got.length;
+  return <div className="box p-3 mb-3"><span className="u text-xs block mb-1">Estimated cost{store?' · '+store.name:''}</span>
+    {!store?<div>
+      <div className="flex gap-2"><input className="inp" inputMode="numeric" maxLength={5} placeholder="ZIP code" aria-label="ZIP code" value={zip} onChange={e=>setZip(e.target.value)}/><button className="btn" onClick={find}>Find store</button></div>
+      {err&&<p className="mt-2 italic" role="status">{err}</p>}
+      {stores&&<ul className="mt-2">{stores.map(st=><li key={st.id}><button className="btn mb-1" onClick={()=>pick(st)}>{st.name}<span className="text-xs opacity-80"> {st.address}</span></button></li>)}</ul>}
+    </div>:!rows?<p className="italic">Loading prices…</p>:<div>
+      <ul className="text-sm mb-2">{rows.map(x=>{const g=x.p&&lineCost(x.i,x.p);return <li key={x.i.id} className="flex justify-between gap-2"><span className="truncate">{x.i.name}{x.p&&<span className="opacity-70"> · {x.p.desc}{x.p.size?' ('+x.p.size+')':''}</span>}</span><span>{g?money(g.c)+(g.k==='pkg'?'*':''):'n/a'}</span></li>;})}</ul>
+      <p className="font-bold">Total ≈ {money(total)}</p>
+      <p className="text-xs opacity-80">* whole package (amounts couldn’t be matched){miss>0?' · '+miss+' item'+(miss===1?'':'s')+' not found':''}. Prices refresh daily.</p>
+      <button className="btn mt-2" onClick={()=>{try{localStorage.removeItem(STORE_KEY);}catch(e){}setStore(null);}}>Change store</button>
+    </div>}</div>;
+}
 function RecipeView({r,onClose}){
   return <Modal title={r.name} wide onClose={onClose}>
     {(r.tags||[]).length>0&&<div className="flex flex-wrap gap-1 mb-3">{r.tags.map(t=><span key={t} className="tag">{t}</span>)}</div>}
     <span className="u text-xs block mb-1">Ingredients</span>
     {r.ings.length?<ul className="mb-3">{r.ings.map(i=><li key={i.id}>{fmtQty(i.qty)} {i.name}</li>)}</ul>:<p className="mb-3 italic">No ingredients saved.</p>}
+    <PriceBox ings={r.ings}/>
     <span className="u text-xs block mb-1">Prep notes</span>
     <p className="whitespace-pre-wrap">{r.notes||'No prep notes saved.'}</p>
     <div className="mt-3"><span className="u text-xs block mb-1">Cooked history</span>
