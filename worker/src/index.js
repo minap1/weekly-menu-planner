@@ -107,17 +107,43 @@ async function findStores(env, zip) {
     .map(l => ({ id: l.locationId, name: l.name, address: [l.address && l.address.addressLine1, l.address && l.address.city].filter(Boolean).join(', ') }));
 }
 
+// Package size -> comparable amount (weight in oz, volume in fl oz, or a count).
+const WU = { lb: 16, lbs: 16, oz: 1, g: 0.03527, kg: 35.274 };
+const VU = { 'fl oz': 1, gal: 128, qt: 32, pt: 16, l: 33.814, ml: 0.03381, liter: 33.814 };
+const sizeAmt = t => {
+  const m = String(t || '').toLowerCase().match(/^(\d+(?:\.\d+)?)\s*(fl oz|[a-z]+)/);
+  if (!m) return null;
+  const n = parseFloat(m[1]), u = m[2];
+  if (WU[u]) return { d: 'w', v: n * WU[u] };
+  if (VU[u]) return { d: 'v', v: n * VU[u] };
+  if (u === 'ct' || u === 'each') return { d: 'c', v: n };
+  return null;
+};
+
+// Kroger's search has no sort-by-price option, so we pull the top matches and pick the cheapest per unit ourselves.
+// Only the first 12 relevance-ranked results are considered, and only ones measured the same way as the top match.
 // Prices are cached per store and ingredient for 24 hours, so they refresh daily.
 async function findPrice(env, store, q) {
-  const key = 'p:' + store + ':' + q.toLowerCase();
+  const key = 'p2:' + store + ':' + q.toLowerCase();
   const hit = await env.CACHE.get(key, 'json');
   if (hit) return hit;
-  const d = await krogerGet(env, '/products?filter.term=' + encodeURIComponent(q) + '&filter.locationId=' + store + '&filter.limit=5');
-  let out = { price: null };
-  for (const p of d.data || []) {
+  const d = await krogerGet(env, '/products?filter.term=' + encodeURIComponent(q) + '&filter.locationId=' + store + '&filter.limit=15');
+  const c = [];
+  for (const p of (d.data || []).slice(0, 12)) {
     const it = (p.items || []).find(i => i.price && i.price.regular > 0);
-    if (it) { out = { price: { regular: it.price.regular, promo: it.price.promo > 0 ? it.price.promo : null }, desc: p.description, brand: p.brand || '', size: it.size || '' }; break; }
+    if (!it) continue;
+    const price = it.price.promo > 0 ? it.price.promo : it.price.regular;
+    const a = sizeAmt(it.size);
+    c.push({ p, it, a, unit: a && a.v > 0 ? price / a.v : null });
   }
+  let pick = c[0];
+  if (pick && pick.a) {
+    const same = c.filter(x => x.unit !== null && x.a.d === pick.a.d);
+    pick = same.reduce((b, x) => (x.unit < b.unit ? x : b), same[0]);
+  }
+  const out = pick
+    ? { price: { regular: pick.it.price.regular, promo: pick.it.price.promo > 0 ? pick.it.price.promo : null }, desc: pick.p.description, brand: pick.p.brand || '', size: pick.it.size || '' }
+    : { price: null };
   await env.CACHE.put(key, JSON.stringify(out), { expirationTtl: DAY });
   return out;
 }
