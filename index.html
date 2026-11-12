@@ -9,6 +9,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.26.0/babel.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
 :root{--bg:#cad4ba;--tab:#b8c4a8;--ink:#3b453b;--line:#7f8475;--hl:#dfe8d2;--card:#d5dec9;color-scheme:light}
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#222a23;--tab:#2b352c;--ink:#d2dcc7;--line:#7d8b7a;--hl:#35423a;--card:#2a332b;color-scheme:dark}}
@@ -76,7 +79,7 @@ const KEY='menuPlanner.v1';
 // Display-only: decimals in a quantity show as fractions (0.33 -> 1/3, 2.5 -> 2 1/2). Stored values stay decimal.
 const FR=[[1,8],[1,6],[1,4],[1,3],[3,8],[1,2],[5,8],[2,3],[3,4,],[5,6],[7,8]];
 const fmtQty=q=>String(q==null?'':q).replace(/\d+\.\d+/g,t=>{const v=parseFloat(t),w=Math.floor(v),f=v-w;const m=FR.find(([a,b])=>Math.abs(f-a/b)<0.006);return m?(w?w+' ':'')+m[0]+'/'+m[1]:t;});
-const WORKER_URL='https://menu-planner-api.minap1.workers.dev';
+const WORKER_URL=''; // e.g. 'https://menu-planner-api.YOURNAME.workers.dev' (no trailing slash)
 const uid=()=>Math.random().toString(36).slice(2,9);
 const emptyWeek=()=>{const w={};DAYS.forEach((_,i)=>{w[i]={b:[],l:[],d:[],s:[]}});return w;};
 const monday=d=>{const x=new Date(d);x.setHours(0,0,0,0);x.setDate(x.getDate()-((x.getDay()+6)%7));return x;};
@@ -447,8 +450,85 @@ function Book({recipes:all,onAdd,onEdit,onDel,onView,onFav,onNew}){
     </Modal>}
   </div>;
 }
+// ---- Live sync (Firebase Firestore, whole-planner doc per shared room) ----
+// Paste your Firebase web config here, e.g. {apiKey:'...',authDomain:'...',projectId:'...',appId:'...'}. Leave null to turn sync off.
+const FIREBASE_CONFIG={
+    apiKey: "AIzaSyAA132OMuYOJS-yCRW8qej1HApJNuu35IA",
+    authDomain: "weekly-menu-planner-11c52.firebaseapp.com",
+    projectId: "weekly-menu-planner-11c52",
+    storageBucket: "weekly-menu-planner-11c52.firebasestorage.app",
+    messagingSenderId: "652123687590",
+    appId: "1:652123687590:web:51e091dcffb61f0e360267"
+  };
+const ROOM_KEY='menuPlanner.room';
+const SYNC_IC='M21 12a9 9 0 01-15.5 6.2M3 12a9 9 0 0115.5-6.2M21 4v5h-5M3 20v-5h5';
+const ROOM_CHARS='abcdefghjkmnpqrstuvwxyz23456789';
+const newRoom=()=>{const a=new Uint8Array(12);crypto.getRandomValues(a);return Array.from(a,b=>ROOM_CHARS[b%ROOM_CHARS.length]).join('');};
+const cleanRoom=c=>String(c||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+const showRoom=c=>c.replace(/(.{4})(?=.)/g,'$1-');
+const CLIENT=uid()+uid();
+function useSync(s,setS){
+  const [room,setRoomState]=useState(()=>{try{return localStorage.getItem(ROOM_KEY)||'';}catch(e){return '';}});
+  const [status,setStatus]=useState('off');const [err,setErr]=useState('');
+  const last=React.useRef('');const docRef=React.useRef(null);const sRef=React.useRef(s);sRef.current=s;
+  const enabled=!!FIREBASE_CONFIG&&typeof firebase!=='undefined';
+  const stamp=()=>firebase.firestore.FieldValue.serverTimestamp();
+  const fail=e=>{setStatus('error');setErr(e&&e.message?e.message:'Sync error.');};
+  useEffect(()=>{
+    if(!enabled||!room){setStatus('off');return;}
+    let dead=false,unsub=()=>{};setStatus('connecting');setErr('');
+    try{if(!firebase.apps.length)firebase.initializeApp(FIREBASE_CONFIG);}catch(e){}
+    firebase.auth().signInAnonymously().then(()=>{
+      if(dead)return;
+      const doc=firebase.firestore().collection('rooms').doc(room);docRef.current=doc;
+      unsub=doc.onSnapshot(snap=>{
+        if(snap.metadata.hasPendingWrites)return;
+        if(!snap.exists){const j=JSON.stringify(sRef.current);last.current=j;doc.set({data:j,by:CLIENT,updatedAt:stamp()}).catch(fail);setStatus('live');return;}
+        const d=snap.data();
+        if(d.data!==last.current){try{const st=JSON.parse(d.data);last.current=d.data;setS(advance(st));}catch(e){}}
+        setStatus('live');
+      },fail);
+    }).catch(fail);
+    return()=>{dead=true;unsub();docRef.current=null;};
+  },[room,enabled]);
+  // Push local edits (debounced). Remote changes set last.current first, so they aren't echoed back.
+  useEffect(()=>{
+    if(status!=='live'||!docRef.current)return;
+    const j=JSON.stringify(s);if(j===last.current)return;
+    const t=setTimeout(()=>{last.current=j;if(docRef.current)docRef.current.set({data:j,by:CLIENT,updatedAt:stamp()}).catch(fail);},500);
+    return()=>clearTimeout(t);
+  },[s,status]);
+  const setRoom=r=>{last.current='';try{if(r)localStorage.setItem(ROOM_KEY,r);else localStorage.removeItem(ROOM_KEY);}catch(e){}setRoomState(r);};
+  const join=code=>{const c=cleanRoom(code);if(c.length!==12)return false;
+    try{localStorage.setItem('menuPlanner.backup',JSON.stringify(sRef.current));}catch(e){} // safety copy before the shared planner replaces this one
+    setRoom(c);return true;};
+  return{enabled,room,status,err,start:()=>setRoom(newRoom()),join,stop:()=>setRoom('')};
+}
+function SyncModal({sync,onClose}){
+  const [code,setCode]=useState('');const [msg,setMsg]=useState('');const [copied,setCopied]=useState(false);
+  const label={connecting:'Connecting…',live:'Live. Changes sync automatically.',error:'Sync problem: '+sync.err,off:''}[sync.status];
+  const copy=()=>{try{navigator.clipboard.writeText(showRoom(sync.room)).then(()=>setCopied(true));}catch(e){}};
+  return <Modal title="Live sync" onClose={onClose}>
+    {!sync.enabled?<p>Sync isn’t set up yet. Add your Firebase config to <code>FIREBASE_CONFIG</code> in index.html.</p>
+    :sync.room?<div>
+      <p className="mb-2" role="status">{label}</p>
+      <span className="u text-xs block mb-1">Share this code (privately) with the other person</span>
+      <div className="flex gap-2 mb-3"><input className="inp" readOnly value={showRoom(sync.room)} onFocus={e=>e.target.select()}/><button className="btn" onClick={copy}>{copied?'Copied':'Copy'}</button></div>
+      <p className="text-xs mb-3 opacity-80">Anyone with the code can view and edit this planner. The last change saved wins if you both edit at the same moment.</p>
+      <div className="flex justify-end"><button className="btn" onClick={()=>{sync.stop();onClose();}}>Stop syncing on this device</button></div>
+    </div>
+    :<div>
+      <p className="mb-3">Share one planner between phones or computers. Everyone sees changes as they happen.</p>
+      <button className="btn pri mb-4" onClick={()=>sync.start()}>Start sharing this planner</button>
+      <span className="u text-xs block mb-1">Or join with a code</span>
+      <div className="flex gap-2"><input className="inp" placeholder="xxxx-xxxx-xxxx" aria-label="Sync code" value={code} onChange={e=>setCode(e.target.value)}/><button className="btn" onClick={()=>{if(!sync.join(code))setMsg('That code should have 12 letters and numbers.');}}>Join</button></div>
+      {msg&&<p className="mt-2 italic" role="status">{msg}</p>}
+      <p className="text-xs mt-3 opacity-80">Joining replaces this device’s planner with the shared one. A backup copy is kept in this browser.</p>
+    </div>}
+  </Modal>;
+}
 function App(){
-  const [s,setS]=useState(load);const [tab,setTab]=useState('this');const [modal,setModal]=useState(null);const [view,setView]=useState(null);const [toast,setToast]=useState(null);const [clip,setClip]=useState(null);const [,setNow]=useState(0);
+  const [s,setS]=useState(load);const [tab,setTab]=useState('this');const [modal,setModal]=useState(null);const [view,setView]=useState(null);const [toast,setToast]=useState(null);const [clip,setClip]=useState(null);const [,setNow]=useState(0);const sync=useSync(s,setS);
   useEffect(()=>{const t=()=>{setS(p=>advance(p));setNow(n=>n+1);};const id=setInterval(t,60000);document.addEventListener('visibilitychange',t);return()=>{clearInterval(id);document.removeEventListener('visibilitychange',t);};},[]);
   useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(null),6000);return()=>clearTimeout(t);},[toast]);
   const [theme,setTheme]=useState(()=>{try{const t=localStorage.getItem('menuPlanner.theme');if(t)return t;}catch(e){}return window.matchMedia&&matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';});
@@ -480,7 +560,7 @@ function App(){
     </header>
     <nav className="flex flex-wrap gap-1 px-2" role="tablist">
       {TABS.map(([k,n])=><button key={k} role="tab" aria-selected={tab===k} className={'tab '+(tab===k?'on':'')} onClick={()=>setTab(k)}>{n}</button>)}
-      <div className="ml-auto self-center flex gap-1"><button className="btn ic" style={{padding:'.2rem'}} title="Print this week’s menu" aria-label="Print this week’s menu" onClick={()=>setModal({t:'print'})}><Ic d={P.print} s={15}/></button><button className="btn ic" style={{padding:'.2rem'}} title={theme==='dark'?'Switch to light mode':'Switch to dark mode'} aria-label={theme==='dark'?'Switch to light mode':'Switch to dark mode'} onClick={()=>setTheme(theme==='dark'?'light':'dark')}><Ic d={theme==='dark'?P.sun:P.moon} s={15}/></button></div>
+      <div className="ml-auto self-center flex gap-1"><button className="btn ic" style={{padding:'.2rem'}} title="Live sync" aria-label="Live sync" onClick={()=>setModal({t:'sync'})}><Ic d={SYNC_IC} s={15}/>{sync.status==='live'&&<span aria-hidden="true" style={{width:7,height:7,borderRadius:'50%',background:'#2e9e5b',display:'inline-block',marginLeft:3}}/>}</button><button className="btn ic" style={{padding:'.2rem'}} title="Print this week’s menu" aria-label="Print this week’s menu" onClick={()=>setModal({t:'print'})}><Ic d={P.print} s={15}/></button><button className="btn ic" style={{padding:'.2rem'}} title={theme==='dark'?'Switch to light mode':'Switch to dark mode'} aria-label={theme==='dark'?'Switch to light mode':'Switch to dark mode'} onClick={()=>setTheme(theme==='dark'?'light':'dark')}><Ic d={theme==='dark'?P.sun:P.moon} s={15}/></button></div>
     </nav>
     <main className="panel flex flex-col flex-1">
       {tab==='this'&&<WeekView wk="thisWeek" s={s} today={today} onMove={moveMeal('thisWeek')} shop={s.shop||[]} onShop={toggleShop} clip={clip} onCopy={setClip} onClear={()=>setClip(null)} onPaste={(d,sl)=>pasteMeal('thisWeek',d,sl)} onRemove={(d,sl,m)=>removeMeal('thisWeek',d,sl,m)} onAdd={i=>setModal({t:'add',...i})} onEdit={i=>setModal({t:'edit',...i})}/>}
@@ -505,6 +585,7 @@ function App(){
     {modal&&modal.t==='recipe'&&<Modal title="Edit recipe" onClose={close}><RecipeForm initial={modal.r} allTags={allTags} onHistory={setHistory} submitLabel="Save changes" onSave={r=>{saveRecipe(r);close();}} onCancel={close}/></Modal>}
     {modal&&modal.t==='del'&&<Modal title="Are you sure?" onClose={close}><p className="mb-4">Delete “{modal.r.name}” from your Recipe Book? Meals already on your menus will stay.</p><div className="flex justify-end gap-2"><button className="btn" onClick={close}>Cancel</button><button className="btn pri" onClick={()=>{delRecipe(modal.r.id);close();}}>Delete recipe</button></div></Modal>}
     {modal&&modal.t==='list'&&<ListModal week={s.nextWeek} recipes={s.recipes} onClose={close}/>}
+    {modal&&modal.t==='sync'&&<SyncModal sync={sync} onClose={close}/>}
     {modal&&modal.t==='print'&&<PrintView week={s.thisWeek} ws={s.weekStart} onClose={close}/>}
     {modal&&modal.t==='combo'&&<ComboModal init={modal.c} recipes={s.recipes} onSave={saveCombo} onClose={close}/>}
     {modal&&modal.t==='delc'&&<Modal title="Are you sure?" onClose={close}><p className="mb-4">Delete the combo “{modal.c.name}”? Menus that already use it will keep their meals.</p><div className="flex justify-end gap-2"><button className="btn" onClick={close}>Cancel</button><button className="btn pri" onClick={()=>{delCombo(modal.c.id);close();}}>Delete combo</button></div></Modal>}
