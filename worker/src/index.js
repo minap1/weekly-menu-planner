@@ -148,6 +148,18 @@ async function findPrice(env, store, q) {
   return out;
 }
 
+// Per-IP rate limiting (Cloudflare Workers rate limiting bindings). Fails open if a binding is missing or errors.
+async function limited(env, name, req) {
+  const l = env[name];
+  if (!l) return false;
+  try {
+    const ip = req.headers.get('CF-Connecting-IP') || 'anon';
+    const { success } = await l.limit({ key: name + ':' + ip });
+    return !success;
+  } catch { return false; }
+}
+const tooMany = (h, msg) => json({ error: msg }, 429, { ...h, 'Retry-After': '60' });
+
 export default {
   async fetch(req, env) {
     const h = cors(req, env);
@@ -155,6 +167,7 @@ export default {
     const url = new URL(req.url);
     if (url.pathname === '/scan' && req.method === 'GET') {
       if (h['Access-Control-Allow-Origin'] === 'null') return json({ error: 'Origin not allowed' }, 403, h);
+      if (await limited(env, 'SCAN_LIMITER', req)) return tooMany(h, 'Too many scans. Try again in a minute.');
       const target = safeUrl(url.searchParams.get('url') || '');
       if (!target) return json({ error: 'Enter a valid http(s) recipe link.' }, 400, h);
       try {
@@ -166,6 +179,7 @@ export default {
     }
     if ((url.pathname === '/stores' || url.pathname === '/price') && req.method === 'GET') {
       if (h['Access-Control-Allow-Origin'] === 'null') return json({ error: 'Origin not allowed' }, 403, h);
+      if (await limited(env, 'API_LIMITER', req)) return tooMany(h, 'Too many requests. Try again in a minute.');
       try {
         if (url.pathname === '/stores') {
           const zip = url.searchParams.get('zip') || '';

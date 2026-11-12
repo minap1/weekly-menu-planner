@@ -3,10 +3,25 @@ main = "src/index.js"
 compatibility_date = "2024-11-01"
 workers_dev = true
 preview_urls = false
-
+ 
 [vars]
 ALLOWED_ORIGINS = "https://minap1.github.io,http://localhost:8000"
-
+ 
 [[kv_namespaces]]
 binding = "CACHE"
 id = "dfd4c8185283426aad29b0f419335a10"
+ 
+# Per-IP rate limits (needs Wrangler 4.36 or later). Period must be 10 or 60 seconds.
+[[ratelimits]]
+name = "SCAN_LIMITER"
+namespace_id = "1001"
+  [ratelimits.simple]
+  limit = 10
+  period = 60
+ 
+[[ratelimits]]
+name = "API_LIMITER"
+namespace_id = "1002"
+  [ratelimits.simple]
+  limit = 60
+  period = 60
