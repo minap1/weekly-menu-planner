@@ -452,14 +452,7 @@ function Book({recipes:all,onAdd,onEdit,onDel,onView,onFav,onNew}){
 }
 // ---- Live sync (Firebase Firestore, whole-planner doc per shared room) ----
 // Paste your Firebase web config here, e.g. {apiKey:'...',authDomain:'...',projectId:'...',appId:'...'}. Leave null to turn sync off.
-const FIREBASE_CONFIG={
-    apiKey: "AIzaSyAA132OMuYOJS-yCRW8qej1HApJNuu35IA",
-    authDomain: "weekly-menu-planner-11c52.firebaseapp.com",
-    projectId: "weekly-menu-planner-11c52",
-    storageBucket: "weekly-menu-planner-11c52.firebasestorage.app",
-    messagingSenderId: "652123687590",
-    appId: "1:652123687590:web:51e091dcffb61f0e360267"
-  };
+const FIREBASE_CONFIG=null;
 const ROOM_KEY='menuPlanner.room';
 const SYNC_IC='M21 12a9 9 0 01-15.5 6.2M3 12a9 9 0 0115.5-6.2M21 4v5h-5M3 20v-5h5';
 const ROOM_CHARS='abcdefghjkmnpqrstuvwxyz23456789';
@@ -467,10 +460,15 @@ const newRoom=()=>{const a=new Uint8Array(12);crypto.getRandomValues(a);return A
 const cleanRoom=c=>String(c||'').toLowerCase().replace(/[^a-z0-9]/g,'');
 const showRoom=c=>c.replace(/(.{4})(?=.)/g,'$1-');
 const CLIENT=uid()+uid();
+// When joining, keep the shared menus but add any recipes/combos only this device has.
+const mergeLocal=(r,l)=>{const ids=new Set(r.recipes.map(x=>x.id)),names=new Set(r.recipes.map(x=>(x.name||'').trim().toLowerCase()));
+  const extra=(l.recipes||[]).filter(x=>!ids.has(x.id)&&!names.has((x.name||'').trim().toLowerCase()));
+  const cids=new Set((r.combos||[]).map(x=>x.id));const cx=(l.combos||[]).filter(x=>!cids.has(x.id));
+  return{...r,recipes:[...r.recipes,...extra],combos:[...(r.combos||[]),...cx]};};
 function useSync(s,setS){
   const [room,setRoomState]=useState(()=>{try{return localStorage.getItem(ROOM_KEY)||'';}catch(e){return '';}});
   const [status,setStatus]=useState('off');const [err,setErr]=useState('');
-  const last=React.useRef('');const docRef=React.useRef(null);const sRef=React.useRef(s);sRef.current=s;
+  const mergeFrom=React.useRef(null);const last=React.useRef('');const docRef=React.useRef(null);const sRef=React.useRef(s);sRef.current=s;
   const enabled=!!FIREBASE_CONFIG&&typeof firebase!=='undefined';
   const stamp=()=>firebase.firestore.FieldValue.serverTimestamp();
   const fail=e=>{setStatus('error');setErr(e&&e.message?e.message:'Sync error.');};
@@ -483,9 +481,10 @@ function useSync(s,setS){
       const doc=firebase.firestore().collection('rooms').doc(room);docRef.current=doc;
       unsub=doc.onSnapshot(snap=>{
         if(snap.metadata.hasPendingWrites)return;
-        if(!snap.exists){const j=JSON.stringify(sRef.current);last.current=j;doc.set({data:j,by:CLIENT,updatedAt:stamp()}).catch(fail);setStatus('live');return;}
+        if(!snap.exists){mergeFrom.current=null;const j=JSON.stringify(sRef.current);last.current=j;doc.set({data:j,by:CLIENT,updatedAt:stamp()}).catch(fail);setStatus('live');return;}
         const d=snap.data();
-        if(d.data!==last.current){try{const st=JSON.parse(d.data);last.current=d.data;setS(advance(st));}catch(e){}}
+        if(d.data!==last.current){try{let st=JSON.parse(d.data);last.current=d.data;if(mergeFrom.current)st=mergeLocal(st,mergeFrom.current);setS(advance(st));}catch(e){}}
+        mergeFrom.current=null;
         setStatus('live');
       },fail);
     }).catch(fail);
@@ -501,7 +500,7 @@ function useSync(s,setS){
   const setRoom=r=>{last.current='';try{if(r)localStorage.setItem(ROOM_KEY,r);else localStorage.removeItem(ROOM_KEY);}catch(e){}setRoomState(r);};
   const join=code=>{const c=cleanRoom(code);if(c.length!==12)return false;
     try{localStorage.setItem('menuPlanner.backup',JSON.stringify(sRef.current));}catch(e){} // safety copy before the shared planner replaces this one
-    setRoom(c);return true;};
+    mergeFrom.current=sRef.current;setRoom(c);return true;};
   return{enabled,room,status,err,start:()=>setRoom(newRoom()),join,stop:()=>setRoom('')};
 }
 function SyncModal({sync,onClose}){
@@ -523,7 +522,7 @@ function SyncModal({sync,onClose}){
       <span className="u text-xs block mb-1">Or join with a code</span>
       <div className="flex gap-2"><input className="inp" placeholder="xxxx-xxxx-xxxx" aria-label="Sync code" value={code} onChange={e=>setCode(e.target.value)}/><button className="btn" onClick={()=>{if(!sync.join(code))setMsg('That code should have 12 letters and numbers.');}}>Join</button></div>
       {msg&&<p className="mt-2 italic" role="status">{msg}</p>}
-      <p className="text-xs mt-3 opacity-80">Joining replaces this device’s planner with the shared one. A backup copy is kept in this browser.</p>
+      <p className="text-xs mt-3 opacity-80">Joining keeps the shared menus and adds any recipes and combos that only this device has. A backup copy is kept in this browser.</p>
     </div>}
   </Modal>;
 }
